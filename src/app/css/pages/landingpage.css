@@ -1,0 +1,27 @@
+.animted-img {
+    position: absolute;
+    z-index: 9;
+    top: 35%;
+    left: 10%;
+    animation: mover 5s infinite alternate;
+    border-radius: 30px;
+  }
+  
+  .animted-img-2 {
+    position: absolute;
+    z-index: 9;
+    top: 25%;
+    right: 10%;
+    animation: mover 5s infinite alternate;
+    border-radius: 30px;
+  }
+  
+  @keyframes mover {
+    0% {
+      transform: translateY(0);
+    }
+    100% {
+      transform: translateY(-10px);
+    }
+  }
+  

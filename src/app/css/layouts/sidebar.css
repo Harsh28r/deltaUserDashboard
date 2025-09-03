@@ -1,0 +1,142 @@
+/* Custom sidebar height override */
+.sidebar-wrapper {
+    height: 100vh !important;
+    min-height: 100vh !important;
+    overflow-y: auto !important;
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    z-index: 40 !important;
+    width: 320px !important;
+}
+
+/* Adjust main content margin for sidebar */
+.main-content {
+    margin-left: 320px !important;
+}
+
+/* Mobile responsive sidebar behavior */
+@media (max-width: 1280px) {
+    .sidebar-wrapper {
+        display: none !important;
+    }
+    
+    /* Show mobile toggle button */
+    [data-testid="flowbite-sidebar-toggle"] {
+        display: block !important;
+    }
+    
+    /* Remove body margin on mobile */
+    .body-wrapper {
+        margin-left: 0 !important;
+    }
+    
+    .page-wrapper {
+        margin-left: 0 !important;
+    }
+    
+    /* Remove main content margin on mobile */
+    .main-content {
+        margin-left: 0 !important;
+    }
+}
+
+/* Additional mobile optimizations */
+@media (max-width: 640px) {
+    .menu-sidebar {
+        width: 100vw !important;
+        max-width: 320px !important;
+    }
+    
+    .minisidebar-icon {
+        width: 60px !important;
+    }
+}
+
+/* Mobile drawer optimizations */
+@media (max-width: 1280px) {
+    .mobile-sidebar-drawer {
+        width: 320px !important;
+    }
+}
+
+
+
+.menu-sidebar {
+    height: 100vh !important;
+    min-height: 100vh !important;
+    width: 400px !important;
+    background: var(--bs-white);
+    top: 0;
+    box-shadow: 7px 7px 10px rgba(0, 0, 0, .03);
+    left: 80px;
+    transition: left .4s ease-in-out;
+    overflow-y: auto !important;
+}
+
+.logo img {
+    margin: 0 auto;
+}
+
+
+
+/* Custom scrollbar styling for sidebar */
+.sidebar-wrapper::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar-wrapper::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}
+
+.sidebar-wrapper::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.sidebar-nav .caption {
+    padding-top: 20px !important;
+    margin-top: 20px !important;
+    border-top: 1px dashed var(--color-border);
+}
+
+.sidebar-nav .caption:first-child {
+    padding-top: 0 !important;
+    margin-top: 0px !important;
+    border-top: 0 !important;
+}
+
+.sidebar-dropdown li a {
+    opacity: 0.9;
+    padding: 8px 16px;
+}
+
+.sidebar-dropdown li a {
+    background-color: transparent !important;
+}
+
+.sidebar-dropdown li a:hover {
+    background-color: transparent !important;
+    opacity: 1;
+}
+
+.sidebar-dropdown li button:hover {
+    background-color: transparent !important;
+}
+
+.sidebar-dropdown li .iconify--fad {
+    height: 9px;
+    width: 9px;
+    margin: 0 4px;
+}
+
+
+
+
+
+
+

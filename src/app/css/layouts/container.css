@@ -1,0 +1,33 @@
+/* Main content area adjustments for sidebar */
+.main-content {
+    margin-left: 320px; /* Width of sidebar */
+    transition: margin-left 0.3s ease;
+}
+
+@media screen and (max-width: 1280px) {
+    .main-content {
+        margin-left: 0;
+    }
+}
+
+/* Legacy page-wrapper support */
+.page-wrapper {
+    transition: .2s ease-in;
+    width: 100%;
+}
+
+@media screen and (max-width: 1280px) {
+    .page-wrapper {
+        margin-left: 0;
+        width: 100%;
+    }
+}
+
+@media screen and (max-width: 768px) {
+    .page-wrapper {
+        margin-left: 0;
+        width: 100%;
+        padding: 0;
+    }
+}
+

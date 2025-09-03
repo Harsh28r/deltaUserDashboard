@@ -1,0 +1,95 @@
+"use client";
+
+import React from "react";
+import { Card, Button } from "flowbite-react";
+import { Icon } from "@iconify/react";
+import { useAuth } from "@/app/context/AuthContext";
+import { usePermissions } from "@/app/context/PermissionContext";
+
+const WelcomeModule = () => {
+  const { user } = useAuth();
+  const { userPermissions } = usePermissions();
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 18) return "Good Afternoon";
+    return "Good Evening";
+  };
+
+  const getRoleDisplay = (role: string) => {
+    switch (role.toLowerCase()) {
+      case 'superadmin':
+        return 'Super Administrator';
+      case 'admin':
+        return 'Administrator';
+      case 'devops':
+        return 'DevOps Engineer';
+      case 'user':
+        return 'User';
+      default:
+        return role;
+    }
+  };
+
+  return (
+    <Card className="h-full bg-gradient-to-br from-orange-50 to-red-50 dark:from-gray-800 dark:to-gray-900 border-orange-200 dark:border-gray-700">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white">Welcome Back!</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Your dashboard overview</p>
+        </div>
+        <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
+          <span className="text-white font-bold text-lg">
+            {user?.name?.charAt(0) || 'U'}
+          </span>
+        </div>
+      </div>
+      
+      <div className="space-y-4">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+            {getGreeting()}, {user?.name || 'User'}!
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400">
+            {getRoleDisplay(user?.role || 'User')} • Level {user?.level || 1}
+          </p>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div className="text-center p-4 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+            <div className="text-2xl font-bold text-gray-900 dark:text-white">
+              {userPermissions.length}
+            </div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              Permissions
+            </div>
+          </div>
+          <div className="text-center p-4 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+            <div className="text-2xl font-bold text-gray-900 dark:text-white">
+              {user?.companyName || 'DeltaYards'}
+            </div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              Company
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex gap-2">
+          <Button color="primary" size="sm" className="flex-1">
+            <Icon icon="solar:chart-line-duotone" className="mr-2" height={16} />
+            Analytics
+          </Button>
+          <Button color="light" size="sm" className="flex-1">
+            <Icon icon="solar:settings-line-duotone" className="mr-2" height={16} />
+            Settings
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+};
+
+export default WelcomeModule;
+
+
