@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Call your external API
-    const response = await fetch(`${API_BASE_URL}/api/superadmin/admin-login`, {
+    const response = await fetch(`${API_BASE_URL}/api/superadmin/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
