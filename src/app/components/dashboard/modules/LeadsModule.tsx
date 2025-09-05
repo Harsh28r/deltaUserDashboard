@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Button, Card, Table, Badge, Modal, TextInput, Label, Alert, Select, Textarea } from "flowbite-react";
+import { Button, Card, Table, Badge, Modal, TextInput, Label, Alert, Select, Textarea, Tabs } from "flowbite-react";
 import { Icon } from "@iconify/react";
 import { useAuth } from "@/app/context/AuthContext";
 import { API_ENDPOINTS } from "@/app/utils/api/endpoints";
@@ -9,6 +9,10 @@ import { useSearchParams } from "next/navigation";
 interface LeadSource {
   _id: string;
   name: string;
+  description?: string;
+  isActive?: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface FormField {
@@ -20,7 +24,12 @@ interface FormField {
 interface LeadStatus {
   _id: string;
   name: string;
-  formFields: FormField[];
+  description?: string;
+  color?: string;
+  isActive?: boolean;
+  formFields?: FormField[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface Lead {
@@ -69,13 +78,15 @@ interface Project {
 const LeadsModule = () => {
   const { token, user } = useAuth();
   const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState("leads");
+  
+  // Leads state
   const [leads, setLeads] = useState<Lead[]>([]);
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   const [leadStatuses, setLeadStatuses] = useState<LeadStatus[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingLeads, setIsLoadingLeads] = useState(false);
-
   const [searchTerm, setSearchTerm] = useState("");
   const [filterSource, setFilterSource] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -93,6 +104,27 @@ const LeadsModule = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  
+  // Lead Sources state
+  const [isSourceModalOpen, setIsSourceModalOpen] = useState(false);
+  const [editingSource, setEditingSource] = useState<LeadSource | null>(null);
+  const [sourceFormData, setSourceFormData] = useState({
+    name: "",
+    description: "",
+    isActive: true,
+  });
+  const [isSubmittingSource, setIsSubmittingSource] = useState(false);
+  
+  // Lead Statuses state
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [editingStatus, setEditingStatus] = useState<LeadStatus | null>(null);
+  const [statusFormData, setStatusFormData] = useState({
+    name: "",
+    description: "",
+    color: "#3B82F6",
+    isActive: true,
+  });
+  const [isSubmittingStatus, setIsSubmittingStatus] = useState(false);
 
   useEffect(() => {
     if (token) {
@@ -458,6 +490,171 @@ const LeadsModule = () => {
     setIsModalOpen(true);
   };
 
+  // Lead Sources Management Functions
+  const handleSourceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sourceFormData.name.trim()) {
+      setAlertMessage({ type: 'error', message: 'Please enter a source name' });
+      return;
+    }
+
+    try {
+      setIsSubmittingSource(true);
+      const url = editingSource 
+        ? API_ENDPOINTS.UPDATE_LEAD_SOURCE(editingSource._id)
+        : API_ENDPOINTS.CREATE_LEAD_SOURCE;
+      
+      const method = editingSource ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(sourceFormData),
+      });
+
+      if (response.ok) {
+        setAlertMessage({ type: 'success', message: `Lead source ${editingSource ? 'updated' : 'created'} successfully!` });
+        fetchData(); // Refresh data
+        handleCloseSourceModal();
+      } else {
+        const errorData = await response.json();
+        setAlertMessage({ type: 'error', message: errorData.message || 'Failed to save lead source' });
+      }
+    } catch (error) {
+      setAlertMessage({ type: 'error', message: 'Network error: Failed to save lead source' });
+    } finally {
+      setIsSubmittingSource(false);
+    }
+  };
+
+  const handleSourceDelete = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this lead source?")) return;
+    
+    try {
+      const response = await fetch(API_ENDPOINTS.DELETE_LEAD_SOURCE(id), {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        setAlertMessage({ type: 'success', message: 'Lead source deleted successfully!' });
+        fetchData(); // Refresh data
+      } else {
+        setAlertMessage({ type: 'error', message: 'Failed to delete lead source' });
+      }
+    } catch (error) {
+      setAlertMessage({ type: 'error', message: 'Network error: Failed to delete lead source' });
+    }
+  };
+
+  const handleSourceEdit = (source: LeadSource) => {
+    setEditingSource(source);
+    setSourceFormData({
+      name: source.name,
+      description: source.description || '',
+      isActive: source.isActive ?? true,
+    });
+    setIsSourceModalOpen(true);
+  };
+
+  const handleCloseSourceModal = () => {
+    setIsSourceModalOpen(false);
+    setEditingSource(null);
+    setSourceFormData({ name: "", description: "", isActive: true });
+  };
+
+  const handleAddNewSource = () => {
+    setEditingSource(null);
+    setSourceFormData({ name: "", description: "", isActive: true });
+    setIsSourceModalOpen(true);
+  };
+
+  // Lead Statuses Management Functions
+  const handleStatusSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!statusFormData.name.trim()) {
+      setAlertMessage({ type: 'error', message: 'Please enter a status name' });
+      return;
+    }
+
+    try {
+      setIsSubmittingStatus(true);
+      const url = editingStatus 
+        ? API_ENDPOINTS.UPDATE_LEAD_STATUS(editingStatus._id)
+        : API_ENDPOINTS.CREATE_LEAD_STATUS;
+      
+      const method = editingStatus ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(statusFormData),
+      });
+
+      if (response.ok) {
+        setAlertMessage({ type: 'success', message: `Lead status ${editingStatus ? 'updated' : 'created'} successfully!` });
+        fetchData(); // Refresh data
+        handleCloseStatusModal();
+      } else {
+        const errorData = await response.json();
+        setAlertMessage({ type: 'error', message: errorData.message || 'Failed to save lead status' });
+      }
+    } catch (error) {
+      setAlertMessage({ type: 'error', message: 'Network error: Failed to save lead status' });
+    } finally {
+      setIsSubmittingStatus(false);
+    }
+  };
+
+  const handleStatusDelete = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this lead status?")) return;
+    
+    try {
+      const response = await fetch(API_ENDPOINTS.DELETE_LEAD_STATUS(id), {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        setAlertMessage({ type: 'success', message: 'Lead status deleted successfully!' });
+        fetchData(); // Refresh data
+      } else {
+        setAlertMessage({ type: 'error', message: 'Failed to delete lead status' });
+      }
+    } catch (error) {
+      setAlertMessage({ type: 'error', message: 'Network error: Failed to delete lead status' });
+    }
+  };
+
+  const handleStatusEdit = (status: LeadStatus) => {
+    setEditingStatus(status);
+    setStatusFormData({
+      name: status.name,
+      description: status.description || '',
+      color: status.color || '#3B82F6',
+      isActive: status.isActive ?? true,
+    });
+    setIsStatusModalOpen(true);
+  };
+
+  const handleCloseStatusModal = () => {
+    setIsStatusModalOpen(false);
+    setEditingStatus(null);
+    setStatusFormData({ name: "", description: "", color: "#3B82F6", isActive: true });
+  };
+
+  const handleAddNewStatus = () => {
+    setEditingStatus(null);
+    setStatusFormData({ name: "", description: "", color: "#3B82F6", isActive: true });
+    setIsStatusModalOpen(true);
+  };
+
   const filteredLeads = leads.filter(lead => {
     const matchesSearch = 
       (lead.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
@@ -476,29 +673,17 @@ const LeadsModule = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-        <div className="flex-1">
-          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">Lead Management</h1>
-          <p className="text-sm lg:text-base text-gray-600 dark:text-gray-400">
-            Manage your sales leads and prospects
-            <span className="block lg:inline lg:ml-2 text-green-600 dark:text-green-400">
-              • Viewing All Leads from All Projects
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white truncate">Lead Management</h1>
+          <p className="text-xs sm:text-sm lg:text-base text-gray-600 dark:text-gray-400 mt-1">
+            Manage your sales leads, sources, and statuses
+            <span className="block sm:inline sm:ml-2 text-green-600 dark:text-green-400">
+              • Complete Lead Management System
             </span>
           </p>
-        </div>
-        <div className="flex gap-2 w-full lg:w-auto lg:ml-auto">
-          <Button 
-            onClick={handleAddNew} 
-            color="primary"
-            disabled={projects.length === 0}
-            title={projects.length === 0 ? "No projects available. Please create a project first." : ""}
-            className="w-full lg:w-auto"
-          >
-            <Icon icon="solar:add-circle-line-duotone" className="mr-2" />
-            Add New Lead
-          </Button>
         </div>
       </div>
 
@@ -512,35 +697,39 @@ const LeadsModule = () => {
         </Alert>
       )}
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 lg:gap-6">
-        <Card className="p-6">
+      {/* Tabs Navigation */}
+      <Tabs aria-label="Lead Management Tabs">
+        <Tabs.Item active={activeTab === "leads"} title="Leads" onClick={() => setActiveTab("leads")}>
+          <div className="space-y-4 sm:space-y-6">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
+        <Card className="p-3 sm:p-4 lg:p-6">
           <div className="text-center">
-            <div className="text-3xl lg:text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2">
+            <div className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold text-blue-600 dark:text-blue-400 mb-1 sm:mb-2">
               {leads.length}
             </div>
-            <div className="text-base text-gray-600 dark:text-gray-400 font-medium">Total Leads</div>
+            <div className="text-xs sm:text-sm lg:text-base text-gray-600 dark:text-gray-400 font-medium">Total Leads</div>
           </div>
         </Card>
-        <Card className="p-6">
+        <Card className="p-3 sm:p-4 lg:p-6">
           <div className="text-center">
-            <div className="text-3xl lg:text-4xl font-bold text-green-600 dark:text-green-400 mb-2">
+            <div className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold text-green-600 dark:text-green-400 mb-1 sm:mb-2">
               {leadSources.length}
             </div>
-            <div className="text-base text-gray-600 dark:text-gray-400 font-medium">Lead Sources</div>
+            <div className="text-xs sm:text-sm lg:text-base text-gray-600 dark:text-gray-400 font-medium">Lead Sources</div>
           </div>
         </Card>
-        <Card className="p-6">
+        <Card className="p-3 sm:p-4 lg:p-6">
           <div className="text-center">
-            <div className="text-3xl lg:text-4xl font-bold text-purple-600 dark:text-purple-400 mb-2">
+            <div className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold text-purple-600 dark:text-purple-400 mb-1 sm:mb-2">
               {leadStatuses.length}
             </div>
-            <div className="text-base text-gray-600 dark:text-gray-400 font-medium">Lead Statuses</div>
+            <div className="text-xs sm:text-sm lg:text-base text-gray-600 dark:text-gray-400 font-medium">Lead Statuses</div>
           </div>
         </Card>
-        <Card className="p-6">
+        <Card className="p-3 sm:p-4 lg:p-6">
           <div className="text-center">
-            <div className="text-3xl lg:text-4xl font-bold text-orange-600 dark:text-orange-400 mb-2">
+            <div className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold text-orange-600 dark:text-orange-400 mb-1 sm:mb-2">
               {leads.filter(lead => {
                 const currentStatus = lead.currentStatus;
                 if (!currentStatus || !currentStatus._id) return false;
@@ -548,15 +737,15 @@ const LeadsModule = () => {
                 return status && status.name === 'New';
               }).length}
             </div>
-            <div className="text-base text-gray-600 dark:text-gray-400 font-medium">New Leads</div>
+            <div className="text-xs sm:text-sm lg:text-base text-gray-600 dark:text-gray-400 font-medium">New Leads</div>
           </div>
         </Card>
-        <Card className="p-6">
+        <Card className="p-3 sm:p-4 lg:p-6">
           <div className="text-center">
-            <div className="text-3xl lg:text-4xl font-bold text-indigo-600 dark:text-indigo-400 mb-2">
+            <div className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold text-indigo-600 dark:text-indigo-400 mb-1 sm:mb-2">
               {projects.length}
             </div>
-            <div className="text-base text-gray-600 dark:text-gray-400 font-medium">Total Projects</div>
+            <div className="text-xs sm:text-sm lg:text-base text-gray-600 dark:text-gray-400 font-medium">Total Projects</div>
           </div>
         </Card>
       </div>
@@ -587,7 +776,7 @@ const LeadsModule = () => {
 
       {/* Search and Filters */}
       <Card>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
           <div>
             <TextInput
               placeholder="Search leads..."
@@ -649,20 +838,20 @@ const LeadsModule = () => {
       {projects.length > 0 ? (
         <Card>
           {isLoadingLeads ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-gray-500 dark:text-gray-400">Loading leads...</p>
+            <div className="text-center py-6 sm:py-8">
+              <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-primary mx-auto mb-3 sm:mb-4"></div>
+              <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400">Loading leads...</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="overflow-x-auto -mx-3 sm:mx-0">
+              <Table className="min-w-full">
                 <Table.Head>
-                  <Table.HeadCell className="min-w-[120px]">Name</Table.HeadCell>
-                  <Table.HeadCell className="min-w-[150px]">Contact</Table.HeadCell>
-                  <Table.HeadCell className="min-w-[100px]">Source</Table.HeadCell>
-                  <Table.HeadCell className="min-w-[100px]">Status</Table.HeadCell>
-                  <Table.HeadCell className="min-w-[100px]">Created</Table.HeadCell>
-                  <Table.HeadCell className="min-w-[150px]">Actions</Table.HeadCell>
+                  <Table.HeadCell className="min-w-[100px] sm:min-w-[120px] text-xs sm:text-sm">Name</Table.HeadCell>
+                  <Table.HeadCell className="min-w-[120px] sm:min-w-[150px] text-xs sm:text-sm">Contact</Table.HeadCell>
+                  <Table.HeadCell className="min-w-[80px] sm:min-w-[100px] text-xs sm:text-sm">Source</Table.HeadCell>
+                  <Table.HeadCell className="min-w-[80px] sm:min-w-[100px] text-xs sm:text-sm">Status</Table.HeadCell>
+                  <Table.HeadCell className="min-w-[80px] sm:min-w-[100px] text-xs sm:text-sm">Created</Table.HeadCell>
+                  <Table.HeadCell className="min-w-[120px] sm:min-w-[150px] text-xs sm:text-sm">Actions</Table.HeadCell>
                 </Table.Head>
                 <Table.Body className="divide-y">
                   {filteredLeads.length === 0 ? (
@@ -683,47 +872,55 @@ const LeadsModule = () => {
                   ) : (
                     filteredLeads.map((lead) => (
                       <Table.Row key={lead._id} className="bg-white dark:border-gray-700 dark:bg-gray-800">
-                        <Table.Cell className="whitespace-nowrap font-medium text-gray-900 dark:text-white">
-                          {lead.name || 'N/A'}
+                        <Table.Cell className="whitespace-nowrap font-medium text-gray-900 dark:text-white text-xs sm:text-sm">
+                          <div className="truncate max-w-[100px] sm:max-w-none">
+                            {lead.name || 'N/A'}
+                          </div>
                         </Table.Cell>
-                        <Table.Cell>
-                          <div className="text-sm">
-                            <div>{lead.email || 'N/A'}</div>
-                            <div className="text-gray-500 dark:text-gray-400">{lead.phone || 'N/A'}</div>
+                        <Table.Cell className="text-xs sm:text-sm">
+                          <div className="min-w-0">
+                            <div className="truncate">{lead.email || 'N/A'}</div>
+                            <div className="text-gray-500 dark:text-gray-400 truncate">{lead.phone || 'N/A'}</div>
                           </div>
                         </Table.Cell>
                         <Table.Cell>
-                          <Badge color="blue" size="sm">
-                            {lead.leadSource?.name || 'N/A'}
+                          <Badge color="blue" size="sm" className="text-xs">
+                            <span className="truncate max-w-[60px] sm:max-w-none">
+                              {lead.leadSource?.name || 'N/A'}
+                            </span>
                           </Badge>
                         </Table.Cell>
                         <Table.Cell>
-                          <Badge color="green" size="sm">
-                            {lead.currentStatus?.name || 'N/A'}
+                          <Badge color="green" size="sm" className="text-xs">
+                            <span className="truncate max-w-[60px] sm:max-w-none">
+                              {lead.currentStatus?.name || 'N/A'}
+                            </span>
                           </Badge>
                         </Table.Cell>
-                        <Table.Cell className="whitespace-nowrap text-gray-500 dark:text-gray-400">
+                        <Table.Cell className="whitespace-nowrap text-gray-500 dark:text-gray-400 text-xs sm:text-sm">
                           {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : 'N/A'}
                         </Table.Cell>
                         <Table.Cell>
-                          <div className="flex flex-col sm:flex-row gap-2">
+                          <div className="flex flex-col gap-1 sm:flex-row sm:gap-2">
                             <Button
                               size="xs"
                               color="info"
                               onClick={() => handleEdit(lead)}
-                              className="text-xs"
+                              className="text-xs px-2 py-1"
                             >
                               <Icon icon="solar:pen-line-duotone" className="mr-1" />
                               <span className="hidden sm:inline">Edit</span>
+                              <span className="sm:hidden">E</span>
                             </Button>
                             <Button
                               size="xs"
                               color="failure"
                               onClick={() => handleDelete(lead._id)}
-                              className="text-xs"
+                              className="text-xs px-2 py-1"
                             >
                               <Icon icon="solar:trash-bin-trash-line-duotone" className="mr-1" />
                               <span className="hidden sm:inline">Delete</span>
+                              <span className="sm:hidden">D</span>
                             </Button>
                           </div>
                         </Table.Cell>
@@ -756,11 +953,13 @@ const LeadsModule = () => {
       {/* Add/Edit Modal */}
       <Modal show={isModalOpen && projects.length > 0} onClose={handleCloseModal} size="xl">
         <Modal.Header>
-          {editingLead ? 'Edit Lead' : 'Add New Lead'}
+          <div className="text-sm sm:text-base font-semibold">
+            {editingLead ? 'Edit Lead' : 'Add New Lead'}
+          </div>
         </Modal.Header>
         <form onSubmit={handleSubmit}>
-          <Modal.Body>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Modal.Body className="max-h-[80vh] overflow-y-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <Label htmlFor="name" value="Full Name *" />
                 <TextInput
@@ -856,16 +1055,292 @@ const LeadsModule = () => {
               />
             </div>
           </Modal.Body>
-          <Modal.Footer className="flex flex-col sm:flex-row gap-2">
-            <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
+          <Modal.Footer className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto text-sm">
               {isSubmitting ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              ) : (
+                <Icon icon="solar:check-circle-line-duotone" className="mr-1 sm:mr-2" />
+              )}
+              {editingLead ? 'Update' : 'Create'}
+            </Button>
+            <Button color="gray" onClick={handleCloseModal} className="w-full sm:w-auto text-sm">
+              Cancel
+            </Button>
+          </Modal.Footer>
+        </form>
+      </Modal>
+          </div>
+        </Tabs.Item>
+
+      {/* Lead Sources Tab */}
+      <Tabs.Item active={activeTab === "sources"} title="Lead Sources" onClick={() => setActiveTab("sources")}>
+        <div className="space-y-4 sm:space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
+            <div>
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">Lead Sources</h3>
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Manage your lead sources</p>
+            </div>
+            <Button onClick={handleAddNewSource} color="primary" size="sm">
+              <Icon icon="solar:add-circle-line-duotone" className="mr-1 sm:mr-2" height={16} />
+              Add Source
+            </Button>
+          </div>
+
+          <Card>
+            <div className="overflow-x-auto">
+              <Table>
+                <Table.Head>
+                  <Table.HeadCell>Name</Table.HeadCell>
+                  <Table.HeadCell>Description</Table.HeadCell>
+                  <Table.HeadCell>Status</Table.HeadCell>
+                  <Table.HeadCell>Created</Table.HeadCell>
+                  <Table.HeadCell>Actions</Table.HeadCell>
+                </Table.Head>
+                <Table.Body>
+                  {leadSources.map((source) => (
+                    <Table.Row key={source._id}>
+                      <Table.Cell className="font-medium text-gray-900 dark:text-white">
+                        {source.name}
+                      </Table.Cell>
+                      <Table.Cell className="text-gray-600 dark:text-gray-400">
+                        {source.description || 'No description'}
+                      </Table.Cell>
+                      <Table.Cell>
+                        <Badge color={source.isActive ? 'success' : 'failure'} size="sm">
+                          {source.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </Table.Cell>
+                      <Table.Cell className="text-gray-600 dark:text-gray-400">
+                        {new Date(source.createdAt).toLocaleDateString()}
+                      </Table.Cell>
+                      <Table.Cell>
+                        <div className="flex gap-2">
+                          <Button size="xs" color="info" onClick={() => handleSourceEdit(source)}>
+                            <Icon icon="solar:pen-line-duotone" className="mr-1" height={14} />
+                            Edit
+                          </Button>
+                          <Button size="xs" color="failure" onClick={() => handleSourceDelete(source._id)}>
+                            <Icon icon="solar:trash-bin-trash-line-duotone" className="mr-1" height={14} />
+                            Delete
+                          </Button>
+                        </div>
+                      </Table.Cell>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table>
+            </div>
+          </Card>
+        </div>
+      </Tabs.Item>
+
+      {/* Lead Statuses Tab */}
+      <Tabs.Item active={activeTab === "statuses"} title="Lead Statuses" onClick={() => setActiveTab("statuses")}>
+        <div className="space-y-4 sm:space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
+            <div>
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">Lead Statuses</h3>
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Manage your lead statuses</p>
+            </div>
+            <Button onClick={handleAddNewStatus} color="primary" size="sm">
+              <Icon icon="solar:add-circle-line-duotone" className="mr-1 sm:mr-2" height={16} />
+              Add Status
+            </Button>
+          </div>
+
+          <Card>
+            <div className="overflow-x-auto">
+              <Table>
+                <Table.Head>
+                  <Table.HeadCell>Name</Table.HeadCell>
+                  <Table.HeadCell>Description</Table.HeadCell>
+                  <Table.HeadCell>Color</Table.HeadCell>
+                  <Table.HeadCell>Status</Table.HeadCell>
+                  <Table.HeadCell>Created</Table.HeadCell>
+                  <Table.HeadCell>Actions</Table.HeadCell>
+                </Table.Head>
+                <Table.Body>
+                  {leadStatuses.map((status) => (
+                    <Table.Row key={status._id}>
+                      <Table.Cell className="font-medium text-gray-900 dark:text-white">
+                        {status.name}
+                      </Table.Cell>
+                      <Table.Cell className="text-gray-600 dark:text-gray-400">
+                        {status.description || 'No description'}
+                      </Table.Cell>
+                      <Table.Cell>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-4 h-4 rounded-full border border-gray-300"
+                            style={{ backgroundColor: status.color || '#3B82F6' }}
+                          ></div>
+                          <span className="text-xs text-gray-600 dark:text-gray-400">
+                            {status.color || '#3B82F6'}
+                          </span>
+                        </div>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <Badge color={status.isActive ? 'success' : 'failure'} size="sm">
+                          {status.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </Table.Cell>
+                      <Table.Cell className="text-gray-600 dark:text-gray-400">
+                        {new Date(status.createdAt).toLocaleDateString()}
+                      </Table.Cell>
+                      <Table.Cell>
+                        <div className="flex gap-2">
+                          <Button size="xs" color="info" onClick={() => handleStatusEdit(status)}>
+                            <Icon icon="solar:pen-line-duotone" className="mr-1" height={14} />
+                            Edit
+                          </Button>
+                          <Button size="xs" color="failure" onClick={() => handleStatusDelete(status._id)}>
+                            <Icon icon="solar:trash-bin-trash-line-duotone" className="mr-1" height={14} />
+                            Delete
+                          </Button>
+                        </div>
+                      </Table.Cell>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table>
+            </div>
+          </Card>
+        </div>
+      </Tabs.Item>
+      </Tabs>
+
+      {/* Lead Sources Modal */}
+      <Modal show={isSourceModalOpen} onClose={handleCloseSourceModal} size="md">
+        <Modal.Header>
+          {editingSource ? 'Edit Lead Source' : 'Add New Lead Source'}
+        </Modal.Header>
+        <form onSubmit={handleSourceSubmit}>
+          <Modal.Body>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="sourceName" value="Source Name *" />
+                <TextInput
+                  id="sourceName"
+                  type="text"
+                  placeholder="Enter source name..."
+                  value={sourceFormData.name}
+                  onChange={(e) => setSourceFormData({ ...sourceFormData, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="sourceDescription" value="Description" />
+                <Textarea
+                  id="sourceDescription"
+                  placeholder="Enter source description..."
+                  value={sourceFormData.description}
+                  onChange={(e) => setSourceFormData({ ...sourceFormData, description: e.target.value })}
+                  rows={3}
+                />
+              </div>
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="sourceActive"
+                  checked={sourceFormData.isActive}
+                  onChange={(e) => setSourceFormData({ ...sourceFormData, isActive: e.target.checked })}
+                  className="mr-2"
+                />
+                <Label htmlFor="sourceActive" value="Active" />
+              </div>
+            </div>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button type="submit" disabled={isSubmittingSource} className="w-full sm:w-auto">
+              {isSubmittingSource ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
               ) : (
                 <Icon icon="solar:check-circle-line-duotone" className="mr-2" />
               )}
-              {editingLead ? 'Update' : 'Create'}
+              {editingSource ? 'Update' : 'Create'}
             </Button>
-            <Button color="gray" onClick={handleCloseModal} className="w-full sm:w-auto">
+            <Button color="gray" onClick={handleCloseSourceModal} className="w-full sm:w-auto">
+              Cancel
+            </Button>
+          </Modal.Footer>
+        </form>
+      </Modal>
+
+      {/* Lead Statuses Modal */}
+      <Modal show={isStatusModalOpen} onClose={handleCloseStatusModal} size="md">
+        <Modal.Header>
+          {editingStatus ? 'Edit Lead Status' : 'Add New Lead Status'}
+        </Modal.Header>
+        <form onSubmit={handleStatusSubmit}>
+          <Modal.Body>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="statusName" value="Status Name *" />
+                <TextInput
+                  id="statusName"
+                  type="text"
+                  placeholder="Enter status name..."
+                  value={statusFormData.name}
+                  onChange={(e) => setStatusFormData({ ...statusFormData, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="statusDescription" value="Description" />
+                <Textarea
+                  id="statusDescription"
+                  placeholder="Enter status description..."
+                  value={statusFormData.description}
+                  onChange={(e) => setStatusFormData({ ...statusFormData, description: e.target.value })}
+                  rows={3}
+                />
+              </div>
+              <div>
+                <Label htmlFor="statusColor" value="Color" />
+                <div className="flex gap-2 flex-wrap">
+                  {['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'].map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      className={`w-8 h-8 rounded-full border-2 ${
+                        statusFormData.color === color ? 'border-gray-800' : 'border-gray-300'
+                      }`}
+                      style={{ backgroundColor: color }}
+                      onClick={() => setStatusFormData({ ...statusFormData, color })}
+                    />
+                  ))}
+                </div>
+                <TextInput
+                  type="text"
+                  placeholder="#3B82F6"
+                  value={statusFormData.color}
+                  onChange={(e) => setStatusFormData({ ...statusFormData, color: e.target.value })}
+                  className="mt-2"
+                />
+              </div>
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="statusActive"
+                  checked={statusFormData.isActive}
+                  onChange={(e) => setStatusFormData({ ...statusFormData, isActive: e.target.checked })}
+                  className="mr-2"
+                />
+                <Label htmlFor="statusActive" value="Active" />
+              </div>
+            </div>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button type="submit" disabled={isSubmittingStatus} className="w-full sm:w-auto">
+              {isSubmittingStatus ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              ) : (
+                <Icon icon="solar:check-circle-line-duotone" className="mr-2" />
+              )}
+              {editingStatus ? 'Update' : 'Create'}
+            </Button>
+            <Button color="gray" onClick={handleCloseStatusModal} className="w-full sm:w-auto">
               Cancel
             </Button>
           </Modal.Footer>

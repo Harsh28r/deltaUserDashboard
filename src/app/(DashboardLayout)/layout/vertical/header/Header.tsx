@@ -19,9 +19,10 @@ import { CustomizerContext } from "@/app/context/CustomizerContext";
 
 interface HeaderPropsType {
   layoutType: string;
+  onMobileMenuToggle?: () => void;
 }
 
-const Header = ({ layoutType }: HeaderPropsType) => {
+const Header = ({ layoutType, onMobileMenuToggle }: HeaderPropsType) => {
   const [isSticky, setIsSticky] = useState(false);
 
   useEffect(() => {
@@ -86,8 +87,8 @@ const Header = ({ layoutType }: HeaderPropsType) => {
         >
           {/* Mobile Toggle Icon */}
           <span
-            onClick={() => setIsMobileSidebar(true)}
-            className="h-10 w-10 flex text-black dark:text-white text-opacity-65 xl:hidden hover:text-primary hover:bg-lightprimary rounded-full justify-center items-center cursor-pointer"
+            onClick={onMobileMenuToggle}
+            className="h-10 w-10 flex text-black dark:text-white text-opacity-65 lg:hidden hover:text-primary hover:bg-lightprimary rounded-full justify-center items-center cursor-pointer"
           >
             <Icon icon="solar:hamburger-menu-line-duotone" height={21} />
           </span>
@@ -189,12 +190,6 @@ const Header = ({ layoutType }: HeaderPropsType) => {
         ) : null}
       </header>
 
-      {/* Mobile Sidebar */}
-      <Drawer open={isMobileSidebar} onClose={handleClose} className="w-80 mobile-sidebar-drawer">
-        <Drawer.Items>
-          <MobileSidebar />
-        </Drawer.Items>
-      </Drawer>
     </>
   );
 };

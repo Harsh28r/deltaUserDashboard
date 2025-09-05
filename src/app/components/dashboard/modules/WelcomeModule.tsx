@@ -34,54 +34,54 @@ const WelcomeModule = () => {
 
   return (
     <Card className="h-full bg-gradient-to-br from-orange-50 to-red-50 dark:from-gray-800 dark:to-gray-900 border-orange-200 dark:border-gray-700">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white">Welcome Back!</h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">Your dashboard overview</p>
+      <div className="flex items-center justify-between mb-3 sm:mb-4">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white truncate">Welcome Back!</h3>
+          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Your dashboard overview</p>
         </div>
-        <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
-          <span className="text-white font-bold text-lg">
+        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center flex-shrink-0 ml-2">
+          <span className="text-white font-bold text-sm sm:text-lg">
             {user?.name?.charAt(0) || 'U'}
           </span>
         </div>
       </div>
       
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
             {getGreeting()}, {user?.name || 'User'}!
           </h2>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
             {getRoleDisplay(user?.role || 'User')} • Level {user?.level || 1}
           </p>
         </div>
         
-        <div className="grid grid-cols-2 gap-4">
-          <div className="text-center p-4 bg-white/50 dark:bg-gray-800/50 rounded-lg">
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          <div className="text-center p-3 sm:p-4 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+            <div className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
               {userPermissions.length}
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
+            <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
               Permissions
             </div>
           </div>
-          <div className="text-center p-4 bg-white/50 dark:bg-gray-800/50 rounded-lg">
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
+          <div className="text-center p-3 sm:p-4 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+            <div className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white truncate">
               {user?.companyName || 'DeltaYards'}
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
+            <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
               Company
             </div>
           </div>
         </div>
         
-        <div className="flex gap-2">
-          <Button color="primary" size="sm" className="flex-1">
-            <Icon icon="solar:chart-line-duotone" className="mr-2" height={16} />
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button color="primary" size="sm" className="flex-1 text-xs sm:text-sm">
+            <Icon icon="solar:chart-line-duotone" className="mr-1 sm:mr-2" height={14} width={14} />
             Analytics
           </Button>
-          <Button color="light" size="sm" className="flex-1">
-            <Icon icon="solar:settings-line-duotone" className="mr-2" height={16} />
+          <Button color="light" size="sm" className="flex-1 text-xs sm:text-sm">
+            <Icon icon="solar:settings-line-duotone" className="mr-1 sm:mr-2" height={14} width={14} />
             Settings
           </Button>
         </div>
@@ -91,5 +91,7 @@ const WelcomeModule = () => {
 };
 
 export default WelcomeModule;
+
+
 
 
