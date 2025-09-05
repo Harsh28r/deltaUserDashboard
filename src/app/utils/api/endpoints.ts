@@ -1,13 +1,37 @@
 // API Configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+// export const API_BASE_URL = 'https://deltadb-o1lh.onrender.com'; // Temporarily hardcoded to bypass env var issues
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
 
+// API Endpoints
 export const API_ENDPOINTS = {
-  // Authentication
-  LOGIN: `${API_BASE_URL}/api/superadmin/login`,
+  // Auth
+  ADMIN_LOGIN: `${API_BASE_URL}/api/superadmin/admin-login`,
   USER_PROFILE: `${API_BASE_URL}/api/user/profile`,
+  
+  // Roles
+  ROLES: `${API_BASE_URL}/api/superadmin/roles`,
+  ROLE_BY_ID: (id: string) => `${API_BASE_URL}/api/superadmin/roles/${id}`,
+  
+  // Users - TEMPORARY: Using projects endpoint until backend implements users API
+  USERS: `${API_BASE_URL}/api/projects`, // Temporary: will extract users from projects
+  USERS_BY_ROLE: (roleName: string) => `${API_BASE_URL}/api/projects`, // Temporary: will filter by role
+  CREATE_USER: `${API_BASE_URL}/api/superadmin/create-user`,
+  CREATE_USER_WITH_PROJECTS: `${API_BASE_URL}/api/superadmin/create-user-with-projects`,
+  UPDATE_USER_PROJECTS: `${API_BASE_URL}/api/superadmin/update-user-projects`,
+  USER_BY_ID: (id: string) => `${API_BASE_URL}/api/superadmin/users/${id}`,
+  USER_HISTORY: (id: string) => `${API_BASE_URL}/api/superadmin/users/${id}/history`,
+  UPDATE_USER: (id: string) => `${API_BASE_URL}/api/superadmin/users/${id}`,
+  DELETE_USER: (id: string) => `${API_BASE_URL}/api/superadmin/users/${id}`,
+  
+  // TODO: Backend needs to implement these endpoints:
+  // USERS: `${API_BASE_URL}/api/superadmin/users`,
+  // USERS_BY_ROLE: (roleName: string) => `${API_BASE_URL}/api/superadmin/users/role/${roleName}`,
   
   // Projects
   PROJECTS: `${API_BASE_URL}/api/projects`,
+  ASSIGN_PROJECT_MEMBER: `${API_BASE_URL}/api/projects/members/add`,
+  ASSIGN_ROLE: `${API_BASE_URL}/api/projects/members/assign-role`,
+  BULK_ASSIGN_ROLE: `${API_BASE_URL}/api/projects/members/bulk-assign-role`,
   
   // Lead Management
   LEAD_SOURCES: `${API_BASE_URL}/api/lead-sources`,
@@ -28,6 +52,13 @@ export const API_ENDPOINTS = {
   CREATE_LEAD: (projectId: string) => `${API_BASE_URL}/api/leads?projectId=${projectId}`,
   UPDATE_LEAD: (id: string) => `${API_BASE_URL}/api/leads/${id}`,
   DELETE_LEAD: (id: string) => `${API_BASE_URL}/api/leads/${id}`,
+  
+  // Permissions
+  ALL_USERS_PERMISSIONS: `${API_BASE_URL}/api/permissions/all-users`,
+  USER_PERMISSIONS: (userId: string) => `${API_BASE_URL}/api/permissions/user/${userId}/permissions`,
+  UPDATE_USER_PERMISSIONS: (userId: string) => `${API_BASE_URL}/api/permissions/user/${userId}/effective-permissions`,
+  ROLE_PERMISSIONS: (roleId: string) => `${API_BASE_URL}/api/permissions/role/${roleId}/permissions`,
+  UPDATE_ROLE_PERMISSIONS: (roleId: string) => `${API_BASE_URL}/api/permissions/role/${roleId}/permissions`,
 };
 
 // API Service Functions
@@ -169,5 +200,20 @@ export class ApiService {
     return response.json();
   }
 }
+
+// Create a custom event system for refreshing sidebar data
+export const createRefreshEvent = () => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('refreshSidebar'));
+  }
+};
+
+export const subscribeToRefresh = (callback: () => void) => {
+  if (typeof window !== 'undefined') {
+    window.addEventListener('refreshSidebar', callback);
+    return () => window.removeEventListener('refreshSidebar', callback);
+  }
+  return () => {};
+};
 
 export default API_ENDPOINTS;

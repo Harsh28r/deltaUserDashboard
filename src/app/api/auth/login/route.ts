@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -14,7 +16,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Call your external API
-    const response = await fetch('http://localhost:5000/api/superadmin/login', {
+    const response = await fetch(`${API_BASE_URL}/api/superadmin/admin-login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
