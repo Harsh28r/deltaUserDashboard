@@ -9,9 +9,19 @@ interface User {
   email: string;
   role: string;
   level: number;
-  mobile: string;
-  companyName: string;
-  permissions?: string[];
+  mobile?: string;
+  companyName?: string;
+  isActive: boolean;
+  permissions?: {
+    allowed: string[];
+    denied: string[];
+  };
+  projectAccess?: {
+    canAccessAll: boolean;
+    allowedProjects: string[];
+    deniedProjects: string[];
+    maxProjects: number | null;
+  };
   createdAt?: string;
 }
 
@@ -22,6 +32,13 @@ interface AuthContextType {
   logout: () => void;
   isLoading: boolean;
   fetchUserProfile: () => Promise<void>;
+  userPermissions: string[];
+  projectAccess: {
+    canAccessAll: boolean;
+    allowedProjects: string[];
+    deniedProjects: string[];
+    maxProjects: number | null;
+  } | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -42,6 +59,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [userPermissions, setUserPermissions] = useState<string[]>([]);
+  const [projectAccess, setProjectAccess] = useState<{
+    canAccessAll: boolean;
+    allowedProjects: string[];
+    deniedProjects: string[];
+    maxProjects: number | null;
+  } | null>(null);
 
   // Check for existing auth data on mount
   useEffect(() => {
@@ -77,8 +101,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (response.ok) {
         const profileData = await response.json();
+        console.log('Profile data received:', profileData);
+        
+        // Update user data
         setUser(profileData.user);
         localStorage.setItem('auth_user', JSON.stringify(profileData.user));
+        
+        // Update permissions
+        if (profileData.permissions) {
+          const permissions = profileData.permissions.allowed || [];
+          setUserPermissions(permissions);
+        }
+        
+        // Update project access
+        if (profileData.projectAccess) {
+          setProjectAccess(profileData.projectAccess);
+        }
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -134,6 +172,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     isLoading,
     fetchUserProfile,
+    userPermissions,
+    projectAccess,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -14,8 +14,8 @@ interface MobileSidebarProps {
 }
 
 const MobileSidebar = ({ onClose }: MobileSidebarProps) => {
-  const { user } = useAuth();
-  const { hasAnyPermission, userPermissions } = usePermissions();
+  const { user, userPermissions } = useAuth();
+  const { hasAnyPermission } = usePermissions();
   const { selectedModule, setSelectedModule } = useModuleSelection();
   const [expandedModules, setExpandedModules] = useState<string[]>([]);
 
@@ -25,6 +25,8 @@ const MobileSidebar = ({ onClose }: MobileSidebarProps) => {
     {
       id: 'leads',
       name: 'Leads',
+      icon: 'solar:users-group-rounded-line-duotone',
+      color: 'text-orange-600',
       permission: 'leads:read',
       description: 'Lead management system',
       hasSubmenu: true,
@@ -50,16 +52,31 @@ const MobileSidebar = ({ onClose }: MobileSidebarProps) => {
       ]
     },
     {
+      id: 'channel-partners',
+      name: 'Channel Partners',
+      icon: 'solar:users-group-two-rounded-line-duotone',
+      color: 'text-purple-600',
+      permission: 'channel-partners:read',
+      description: 'Manage channel partners',
+      hasSubmenu: false
+    },
+    {
       id: 'notifications',
       name: 'Notifications',
+      icon: 'solar:bell-line-duotone',
+      color: 'text-blue-600',
       permission: 'notifications:read',
-      description: 'Stay updated'
+      description: 'Stay updated',
+      hasSubmenu: false
     },
     {
       id: 'usermanagement',
       name: 'User Management',
+      icon: 'solar:user-id-line-duotone',
+      color: 'text-red-600',
       permission: 'user:read_all',
-      description: 'Manage users'
+      description: 'Manage users',
+      hasSubmenu: false
     }
   ];
 
@@ -71,9 +88,23 @@ const MobileSidebar = ({ onClose }: MobileSidebarProps) => {
     );
   };
 
-  const filteredModules = modules.filter(module => 
-    hasAnyPermission([module.permission])
-  );
+  // Enhanced permission checking using actual API permissions
+  const hasModulePermission = (permission: string) => {
+    // Check specific permission
+    if (hasAnyPermission([permission])) return true;
+    
+    // Check if user has any permission that contains the module name
+    const moduleName = permission.split(':')[0];
+    return userPermissions.some(p => p.includes(moduleName));
+  };
+
+  const filteredModules = modules.filter(module => {
+    if (module.hasSubmenu && module.submenu) {
+      // For modules with submenu, check if user has permission for any submenu item
+      return module.submenu.some(subItem => hasModulePermission(subItem.permission));
+    }
+    return hasModulePermission(module.permission);
+  });
 
   return (
     <div className="w-full h-full">

@@ -10,7 +10,7 @@ import { useAuth } from "@/app/context/AuthContext";
 import { useRouter } from "next/navigation";
 
 const SideProfile = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, userPermissions, projectAccess } = useAuth();
   const router = useRouter();
 
   const handleLogout = () => {
@@ -49,13 +49,35 @@ const SideProfile = () => {
               />
               <div>
                 <h5 className="card-title">{user?.name || "User"}</h5>
-                <span className="card-subtitle">{user?.role || "User"}</span>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="card-subtitle">{user?.role || "User"}</span>
+                  {user?.isActive !== undefined && (
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      user.isActive 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                        : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                    }`}>
+                      <Icon 
+                        icon={user.isActive ? "solar:check-circle-line-duotone" : "solar:close-circle-line-duotone"} 
+                        className="w-3 h-3 mr-1" 
+                      />
+                      {user.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  )}
+                </div>
                 <p className="card-subtitle mb-0 mt-1 flex items-center">
                   <Icon
                     icon="solar:mailbox-line-duotone"
                     className="text-base me-1"
                   />
                   {user?.email || "user@example.com"}
+                </p>
+                <p className="card-subtitle mb-0 mt-1 flex items-center">
+                  <Icon
+                    icon="solar:shield-user-line-duotone"
+                    className="text-base me-1"
+                  />
+                  Level {user?.level || 1} • {userPermissions.length} permissions
                 </p>
               </div>
             </div>

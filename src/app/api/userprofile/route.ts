@@ -1,33 +1,64 @@
-import { NextResponse } from "next/server";
-import { posts } from "./userData";
+import { NextRequest, NextResponse } from "next/server";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
 
+export async function GET(request: NextRequest) {
+  try {
+    const token = request.headers.get('authorization');
+    
+    if (!token) {
+      return NextResponse.json({ error: 'Authorization token required' }, { status: 401 });
+    }
 
+    const response = await fetch(`${API_BASE_URL}/api/user/profile`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token,
+      },
+    });
 
-export async function GET(){
-  try{
-    return NextResponse.json({status:200, msg:"Success",data:posts})
-  }catch(error){
-    return NextResponse.json({status:200 , msg:"Internal server error", error})
+    if (!response.ok) {
+      return NextResponse.json({ error: 'Failed to fetch user profile' }, { status: response.status });
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-export async function POST(req:any){
-  try{
-    const { postId } = await req.json();
-    const postIndex = posts.findIndex((x) => x.id === postId);
-    const post = { ...posts[postIndex] };
-    post.data = { ...post.data };
-    post.data.likes = { ...post.data.likes };
-    post.data.likes.like = !post.data.likes.like;
-    post.data.likes.value = post.data.likes.like
-      ? post.data.likes.value + 1
-      : post.data.likes.value - 1;
-    posts[postIndex] = post;
+export async function POST(request: NextRequest) {
+  try {
+    const token = request.headers.get('authorization');
+    
+    if (!token) {
+      return NextResponse.json({ error: 'Authorization token required' }, { status: 401 });
+    }
 
-    return NextResponse.json({status:200, msg:"Success",data:posts})
-  }catch(error){
-    return NextResponse.json({status:200 , msg:"Internal server error", error})
+    const body = await request.json();
+    
+    // Forward the request to the backend API
+    const response = await fetch(`${API_BASE_URL}/api/user/profile`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      return NextResponse.json({ error: 'Failed to update user profile' }, { status: response.status });
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
