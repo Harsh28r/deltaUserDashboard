@@ -285,3 +285,4 @@ const LeadStatusesPage = () => {
 };
 
 export default LeadStatusesPage;
+
