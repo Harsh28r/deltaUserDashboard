@@ -101,7 +101,7 @@ const LeadsPage = () => {
             Your Permissions
           </h5>
           <div className="flex flex-wrap gap-2">
-            {user?.permissions?.map((permission, index) => (
+            {user?.permissions?.allowed?.map((permission, index) => (
               <span
                 key={index}
                 className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full"

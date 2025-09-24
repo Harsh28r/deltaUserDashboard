@@ -59,6 +59,13 @@ export const API_ENDPOINTS = {
   DELETE_CHANNEL_PARTNER: (id: string) => `${API_BASE_URL}/api/channel-partner/${id}`,
   UPLOAD_CHANNEL_PARTNER_PHOTO: (id: string) => `${API_BASE_URL}/api/channel-partner/${id}/photo`,
   
+  // CP Sourcing
+  CP_SOURCING: `${API_BASE_URL}/api/cp-sourcing`,
+  CP_SOURCING_BY_ID: (id: string) => `${API_BASE_URL}/api/cp-sourcing/${id}`,
+  CREATE_CP_SOURCING: `${API_BASE_URL}/api/cp-sourcing`,
+  UPDATE_CP_SOURCING: (id: string) => `${API_BASE_URL}/api/cp-sourcing/${id}`,
+  DELETE_CP_SOURCING: (id: string) => `${API_BASE_URL}/api/cp-sourcing/${id}`,
+  
   // Permissions
   ALL_USERS_PERMISSIONS: `${API_BASE_URL}/api/permissions/all-users`,
   USER_PERMISSIONS: (userId: string) => `${API_BASE_URL}/api/permissions/user/${userId}/permissions`,

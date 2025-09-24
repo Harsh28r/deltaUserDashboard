@@ -5,7 +5,7 @@ import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/config";
-import LocationMap from "@/components/LocationMap";
+import LocationMap from "@/app/components/LocationMap";
 
 interface User {
   _id: string;
