@@ -3,8 +3,8 @@ import React, { useState, useEffect } from "react";
 import { Button, Card, Table, Badge, Modal, TextInput, Label, Alert, Select, Textarea, Tabs } from "flowbite-react";
 import { Icon } from "@iconify/react";
 import { useAuth } from "@/app/context/AuthContext";
-import { API_ENDPOINTS } from "@/app/utils/api/endpoints";
-import { useSearchParams } from "next/navigation";
+import { API_ENDPOINTS } from "@/lib/config";
+import { useSearchParams, useRouter } from "next/navigation";
 
 interface LeadSource {
   _id: string;
@@ -76,8 +76,9 @@ interface Project {
 }
 
 const LeadsModule = () => {
-  const { token, user } = useAuth();
+  const { token, user, projectAccess } = useAuth();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("leads");
   
   // Leads state
@@ -100,10 +101,22 @@ const LeadsModule = () => {
     status: "",
     notes: "",
     projectId: "", // Will be empty until user selects
-    userId: ""
+    userId: "",
+    leadPriority: "",
+    propertyType: "",
+    configuration: "",
+    fundingMode: "",
+    gender: "",
+    budget: "",
+    channelPartner: "",
+    cpSourcingId: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const [dynamicFields, setDynamicFields] = useState<Record<string, any>>({});
+  const [channelPartners, setChannelPartners] = useState<any[]>([]);
+  const [cpSourcingOptions, setCPSourcingOptions] = useState<any[]>([]);
+  const [isLoadingCPSourcing, setIsLoadingCPSourcing] = useState(false);
   
   // Lead Sources state
   const [isSourceModalOpen, setIsSourceModalOpen] = useState(false);
@@ -143,13 +156,21 @@ const LeadsModule = () => {
     }
   }, [user]);
 
-  // Set most recent project as default (but user can still edit it)
+  // Default project: prefer assigned, then allowed, else all
   useEffect(() => {
-    if (projects.length > 0 && !formData.projectId) {
-      // Set the most recent project (first in the list) as default
-      setFormData(prev => ({ ...prev, projectId: projects[0]._id }));
+    if (!formData.projectId) {
+      const assignedIds = projectAccess?.assignedProjects?.map(p => p.id) || [];
+      const allowedIds = projectAccess?.allowedProjects || [];
+      const selectable = projectAccess?.canAccessAll
+        ? projects
+        : (assignedIds.length > 0
+            ? projects.filter(p => assignedIds.includes(p._id))
+            : projects.filter(p => allowedIds.includes(p._id)));
+      if (selectable.length > 0) {
+        setFormData(prev => ({ ...prev, projectId: selectable[0]._id }));
+      }
     }
-  }, [projects, formData.projectId]);
+  }, [projects, projectAccess, formData.projectId]);
 
   const fetchLeads = async () => {
     if (isLoadingLeads) return;
@@ -267,6 +288,15 @@ const LeadsModule = () => {
         const statusesData = await statusesResponse.json();
         setLeadStatuses(statusesData.leadStatuses || statusesData || []);
       }
+
+      // Fetch channel partners
+      const cpResponse = await fetch(API_ENDPOINTS.CHANNEL_PARTNERS, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (cpResponse.ok) {
+        const cpData = await cpResponse.json();
+        setChannelPartners(cpData.channelPartners || cpData || []);
+      }
       
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -370,7 +400,15 @@ const LeadsModule = () => {
             "Last Name": formData.name.split(' ').slice(1).join(' ') || '',
             "Email": formData.email,
             "Phone": formData.phone,
-            "Notes": formData.notes
+            "Notes": formData.notes,
+            "Lead Priority": formData.leadPriority,
+            "Property Type": formData.propertyType,
+            "Configuration": formData.configuration,
+            "Funding Mode": formData.fundingMode,
+            "Gender": formData.gender,
+            "Budget": formData.budget,
+            ...(formData.channelPartner ? { "Channel Partner": formData.channelPartner } : {}),
+            ...(formData.cpSourcingId ? { "Channel Partner Sourcing": formData.cpSourcingId } : {})
           },
           user: formData.userId
         };
@@ -455,7 +493,15 @@ const LeadsModule = () => {
       status: lead.currentStatus?._id || '',
       notes: lead.notes || '',
       projectId: formData.projectId || '',
-      userId: formData.userId
+      userId: formData.userId,
+      leadPriority: lead.customData?.["Lead Priority"] || '',
+      propertyType: lead.customData?.["Property Type"] || '',
+      configuration: lead.customData?.["Configuration"] || '',
+      fundingMode: lead.customData?.["Funding Mode"] || '',
+      gender: lead.customData?.["Gender"] || '',
+      budget: lead.customData?.["Budget"] || '',
+      channelPartner: lead.customData?.["Channel Partner"] || '',
+      cpSourcingId: lead.customData?.["Channel Partner Sourcing"] || ''
     });
     setIsModalOpen(true);
   };
@@ -471,7 +517,15 @@ const LeadsModule = () => {
       status: "",
       notes: "",
       projectId: projects.length > 0 ? projects[0]._id : "", // Use default project
-      userId: formData.userId
+      userId: formData.userId,
+      leadPriority: "",
+      propertyType: "",
+      configuration: "",
+      fundingMode: "",
+      gender: "",
+      budget: "",
+      channelPartner: "",
+      cpSourcingId: ""
     });
   };
 
@@ -485,7 +539,15 @@ const LeadsModule = () => {
       status: "",
       notes: "",
       projectId: projects.length > 0 ? projects[0]._id : "", // Use default project
-      userId: formData.userId
+      userId: formData.userId,
+      leadPriority: "",
+      propertyType: "",
+      configuration: "",
+      fundingMode: "",
+      gender: "",
+      budget: "",
+      channelPartner: "",
+      cpSourcingId: ""
     });
     setIsModalOpen(true);
   };
@@ -663,6 +725,89 @@ const LeadsModule = () => {
     const matchesStatus = filterStatus === "all" || lead.currentStatus?._id === filterStatus;
     return matchesSearch && matchesSource && matchesStatus;
   });
+
+  // Project options limited to assigned/allowed
+  const assignedFromAuth = projectAccess?.assignedProjects || [];
+  const assignedIds = assignedFromAuth.map(p => p.id);
+  const allowedIds = projectAccess?.allowedProjects || [];
+  let selectableProjects = projectAccess?.canAccessAll
+    ? projects
+    : (assignedIds.length > 0
+        ? projects.filter(p => assignedIds.includes(p._id))
+        : projects.filter(p => allowedIds.includes(p._id))
+      );
+  if (!projectAccess?.canAccessAll && assignedIds.length > 0) {
+    const existingIds = new Set(selectableProjects.map(p => p._id));
+    const synthetic = assignedFromAuth
+      .filter(ap => !existingIds.has(ap.id))
+      .map(ap => ({ _id: ap.id, name: ap.name } as any));
+    if (synthetic.length > 0) {
+      selectableProjects = [...selectableProjects, ...synthetic];
+    }
+    selectableProjects = selectableProjects.sort((a, b) => {
+      const ai = assignedIds.indexOf(a._id);
+      const bi = assignedIds.indexOf(b._id);
+      if (ai === -1 && bi === -1) return 0;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+  }
+
+  const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newProjectId = e.target.value;
+    setFormData(prev => ({ ...prev, projectId: newProjectId, cpSourcingId: "" }));
+    setCPSourcingOptions([]);
+  };
+
+  const handleSourceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newSource = e.target.value;
+    setFormData(prev => ({ ...prev, source: newSource }));
+    if (newSource !== 'channel-partner') {
+      setFormData(prev => ({ ...prev, channelPartner: "", cpSourcingId: "" }));
+      setCPSourcingOptions([]);
+    }
+  };
+
+  const handleStatusChange = (value: string) => {
+    setFormData(prev => ({ ...prev, status: value }));
+    setDynamicFields({});
+  };
+
+  const getRequiredFieldsForStatus = (statusId: string) => {
+    const st = leadStatuses.find(s => s._id === statusId) as any;
+    return (st?.formFields || []) as any[];
+  };
+
+  const fetchCPSourcingUsers = async (projectId: string, channelPartnerId: string) => {
+    if (!projectId || !channelPartnerId) return;
+    try {
+      setIsLoadingCPSourcing(true);
+      const url = API_ENDPOINTS.CP_SOURCING_UNIQUE_USERS(projectId, channelPartnerId);
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) {
+        setCPSourcingOptions([]);
+        return;
+      }
+      const data = await res.json();
+      const arr = data.users || data || [];
+      const normalized = arr.map((u: any) => ({ _id: u._id || u.id || u.userId || u.email, name: u.name || u.fullName || u.email, email: u.email || '' }));
+      setCPSourcingOptions(normalized);
+    } catch (err) {
+      setCPSourcingOptions([]);
+    } finally {
+      setIsLoadingCPSourcing(false);
+    }
+  };
+
+  const handleChannelPartnerChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const cpId = e.target.value;
+    setFormData(prev => ({ ...prev, channelPartner: cpId, cpSourcingId: "" }));
+    setCPSourcingOptions([]);
+    if (cpId && formData.projectId) {
+      await fetchCPSourcingUsers(formData.projectId, cpId);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -941,7 +1086,7 @@ const LeadsModule = () => {
               <p className="text-sm mb-4">
                 You need to create at least one project before you can view or manage leads.
               </p>
-              <Button color="primary" onClick={() => window.location.href = '/projects'}>
+              <Button color="primary" onClick={() => router.push('/projects')}>
                 <Icon icon="solar:add-circle-line-duotone" className="mr-2" />
                 Create Project
               </Button>
@@ -951,122 +1096,205 @@ const LeadsModule = () => {
       )}
 
       {/* Add/Edit Modal */}
-      <Modal show={isModalOpen && projects.length > 0} onClose={handleCloseModal} size="xl">
+      <Modal show={isModalOpen && projects.length > 0} onClose={handleCloseModal} size="6xl">
         <Modal.Header>
-          <div className="text-sm sm:text-base font-semibold">
-            {editingLead ? 'Edit Lead' : 'Add New Lead'}
-          </div>
+          {editingLead ? 'Change Lead Status' : 'Add New Lead'}
         </Modal.Header>
         <form onSubmit={handleSubmit}>
           <Modal.Body className="max-h-[80vh] overflow-y-auto">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              <div>
-                <Label htmlFor="name" value="Full Name *" />
-                <TextInput
-                  id="name"
-                  type="text"
-                  placeholder="Enter full name..."
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="email" value="Email" />
-                <TextInput
-                  id="email"
-                  type="email"
-                  placeholder="Enter email..."
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="phone" value="Phone" />
-                <TextInput
-                  id="phone"
-                  type="tel"
-                  placeholder="Enter phone number..."
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                />
+            <div className="space-y-8">
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                <div className="flex items-center mb-6">
+                  <div className="bg-blue-100 dark:bg-blue-900/20 p-2 rounded-lg mr-3">
+                    <Icon icon="solar:user-line-duotone" className="text-blue-600 dark:text-blue-400 text-xl" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Basic Information</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="name" value="Full Name *" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
+                    <TextInput id="name" type="text" placeholder="Enter full name..." value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required className="w-full" disabled={!!editingLead} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email" value="Email Address" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
+                    <TextInput id="email" type="email" placeholder="Enter email address..." value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full" disabled={!!editingLead} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone" value="Phone Number" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
+                    <TextInput id="phone" type="tel" placeholder="Enter phone number..." value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="w-full" disabled={!!editingLead} />
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <Label htmlFor="source" value="Lead Source *" />
-                <Select
-                  id="source"
-                  value={formData.source}
-                  onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                  required
-                >
-                  <option value="">Select source</option>
-                  {leadSources.map(source => (
-                    <option key={source._id} value={source._id}>
-                      {source.name}
-                    </option>
-                  ))}
-                </Select>
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                <div className="flex items-center mb-6">
+                  <div className="bg-purple-100 dark:bg-purple-900/20 p-2 rounded-lg mr-3">
+                    <Icon icon="solar:folder-line-duotone" className="text-purple-600 dark:text-purple-400 text-xl" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Project Selection</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Select the project for this lead</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="projectId" value="Project *" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
+                    <Select id="projectId" value={formData.projectId} onChange={(e) => { setFormData({ ...formData, projectId: e.target.value }); }} required className="w-full" disabled={!!editingLead}>
+                      <option value="">Select a project</option>
+                      {(projectAccess?.canAccessAll
+                        ? projects
+                        : (projectAccess?.assignedProjects?.length
+                            ? projects.filter(p => projectAccess.assignedProjects!.some(ap => ap.id === p._id))
+                            : projects.filter(p => projectAccess?.allowedProjects?.includes(p._id))))
+                        .map(project => (
+                          <option key={project._id} value={project._id}>{project.name}</option>
+                        ))}
+                    </Select>
+                    {formData.projectId && (
+                      <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                        <Icon icon="solar:check-circle-line-duotone" className="w-3 h-3" />
+                        {(() => { const selectedProject = projects.find(p => p._id === formData.projectId); return selectedProject ? `Project: ${selectedProject.name}` : 'Project selected'; })()}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div>
-                <Label htmlFor="status" value="Lead Status *" />
-                <Select
-                  id="status"
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  required
-                >
-                  <option value="">Select status</option>
-                  {leadStatuses.map(status => (
-                    <option key={status._id} value={status._id}>
-                      {status.name}
-                    </option>
-                  ))}
-                </Select>
+
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                <div className="flex items-center mb-6">
+                  <div className="bg-green-100 dark:bg-green-900/20 p-2 rounded-lg mr-3">
+                    <Icon icon="solar:chart-line-duotone" className="text-green-600 dark:text-green-400 text-xl" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Lead Details</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Status is automatically set to default and locked</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="source" value="Lead Source *" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
+                    <Select id="source" value={formData.source} onChange={(e) => setFormData({ ...formData, source: e.target.value })} required className="w-full" disabled={!!editingLead}>
+                      <option value="">Select lead source</option>
+                      {leadSources.map(source => (<option key={source._id} value={source._id}>{source.name}</option>))}
+                      {!leadSources.some(source => source.name?.toLowerCase?.() === 'channel partner') && (<option value="channel-partner">Channel Partner</option>)}
+                    </Select>
+                    {(formData.source === 'channel-partner' || leadSources.some(source => source._id === formData.source && source.name?.toLowerCase?.() === 'channel partner')) && (
+                      <p className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1"><Icon icon="solar:info-circle-line-duotone" className="w-3 h-3" />Channel partner selected as lead source</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="status" value="Lead Status *" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
+                    <Select id="status" value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} required className="w-full" disabled={!editingLead}>
+                      <option value="">Select lead status</option>
+                      {leadStatuses.map(status => (<option key={status._id} value={status._id}>{status.name}</option>))}
+                    </Select>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"><Icon icon="solar:lock-line-duotone" className="w-3 h-3" />Status is automatically set to default and locked</p>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="mt-4">
-              <Label htmlFor="projectId" value="Project *" />
-              <Select
-                id="projectId"
-                value={formData.projectId}
-                onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
-                required
-              >
-                <option value="">Select a project</option>
-                {projects.map(project => (
-                  <option key={project._id} value={project._id}>
-                    {project.name}
-                  </option>
-                ))}
-              </Select>
-              <p className="text-sm text-gray-500 mt-1">
-                Default project is selected, but you can change it if needed
-              </p>
-            </div>
-            <div className="mt-4">
-              <Label htmlFor="notes" value="Notes" />
-              <Textarea
-                id="notes"
-                placeholder="Enter additional notes..."
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                rows={3}
-              />
+
+              {/* Additional Lead Information */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                <div className="flex items-center mb-6">
+                  <div className="bg-indigo-100 dark:bg-indigo-900/20 p-2 rounded-lg mr-3">
+                    <Icon icon="solar:settings-line-duotone" className="text-indigo-600 dark:text-indigo-400 text-xl" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Additional Lead Information</h3>
+                </div>
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="leadPriority" value="Lead Priority *" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
+                      <Select id="leadPriority" value={formData.leadPriority || ''} onChange={(e) => setFormData({ ...formData, leadPriority: e.target.value })} className="w-full" required disabled={!!editingLead}>
+                        <option value="">Select Priority</option>
+                        <option value="Hot">Hot</option>
+                        <option value="Cold">Cold</option>
+                        <option value="Warm">Warm</option>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="propertyType" value="Property Type *" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
+                      <Select id="propertyType" value={formData.propertyType || ''} onChange={(e) => setFormData({ ...formData, propertyType: e.target.value })} className="w-full" required disabled={!!editingLead}>
+                        <option value="">Select Property Type</option>
+                        <option value="residential">Residential</option>
+                        <option value="Commercial">Commercial</option>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="configuration" value="Configuration *" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
+                      <Select id="configuration" value={formData.configuration || ''} onChange={(e) => setFormData({ ...formData, configuration: e.target.value })} className="w-full" required disabled={!!editingLead}>
+                        <option value="">Select Configuration</option>
+                        <option value="1 BHK">1 BHK</option>
+                        <option value="2 BHK">2 BHK</option>
+                        <option value="3 BHK">3 BHK</option>
+                        <option value="2+1 BHK">2+1 BHK</option>
+                        <option value="2+2 BHK">2+2 BHK</option>
+                        <option value="commercial office">Commercial Office</option>
+                        <option value="unknown">Unknown</option>
+                        <option value="Duplex">Duplex</option>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="fundingMode" value="Funding Mode *" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
+                      <Select id="fundingMode" value={formData.fundingMode || ''} onChange={(e) => setFormData({ ...formData, fundingMode: e.target.value })} className="w-full" required disabled={!!editingLead}>
+                        <option value="">Select Funding Mode</option>
+                        <option value="Self Funded">Self Funded</option>
+                        <option value="sale out property">Sale Out Property</option>
+                        <option value="loan">Loan</option>
+                        <option value="self loan">Self Loan</option>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="gender" value="Gender *" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
+                      <Select id="gender" value={formData.gender || ''} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} className="w-full" required disabled={!!editingLead}>
+                        <option value="">Select Gender</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="budget" value="Budget *" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
+                      <Select id="budget" value={formData.budget || ''} onChange={(e) => setFormData({ ...formData, budget: e.target.value })} className="w-full" required disabled={!!editingLead}>
+                        <option value="">Select Budget Range</option>
+                        <option value="25-50 Lakhs">25-50 Lakhs</option>
+                        <option value="50 Lakhs - 1 Crore">50 Lakhs - 1 Crore</option>
+                        <option value="1-2 Crores">1-2 Crores</option>
+                        <option value="2-5 Crores">2-5 Crores</option>
+                        <option value="Above 5 Crores">Above 5 Crores</option>
+                        <option value="Not Specified">Not Specified</option>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                <div className="flex items-center mb-6">
+                  <div className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg mr-3">
+                    <Icon icon="solar:notes-line-duotone" className="text-gray-600 dark:text-gray-400 text-xl" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Additional Notes</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Add any additional information about this lead</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="notes" value="Notes" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
+                  <Textarea id="notes" placeholder="Enter any additional notes about this lead..." value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} rows={4} className="w-full" />
+                </div>
+              </div>
             </div>
           </Modal.Body>
-          <Modal.Footer className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-            <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto text-sm">
-              {isSubmitting ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              ) : (
-                <Icon icon="solar:check-circle-line-duotone" className="mr-1 sm:mr-2" />
-              )}
+          <Modal.Footer className="flex flex-col sm:flex-row gap-2">
+            <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
+              {isSubmitting ? (<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>) : (<Icon icon="solar:check-circle-line-duotone" className="mr-2" />)}
               {editingLead ? 'Update' : 'Create'}
             </Button>
-            <Button color="gray" onClick={handleCloseModal} className="w-full sm:w-auto text-sm">
-              Cancel
-            </Button>
+            <Button color="gray" onClick={handleCloseModal} className="w-full sm:w-auto">Cancel</Button>
           </Modal.Footer>
         </form>
       </Modal>

@@ -27,8 +27,8 @@ const ModularDashboard = () => {
     'leadsstatus:read_all',
     'notifications:read',
     'user:read_all',
-    'channel-partners:read',
-    'channel-partners:read_all'
+    'channel-partner:read',
+    'channel-partner:read_all'
   ]);
 
   // Check specific module permissions
@@ -44,7 +44,7 @@ const ModularDashboard = () => {
   const canAccessUserManagement = hasAnyPermission(['user:read_all', 'user:read']) || 
     userPermissions.some(p => p.includes('user'));
   
-  const canAccessChannelPartners = hasAnyPermission(['channel-partners:read', 'channel-partners:read_all']) || 
+  const canAccessChannelPartners = hasAnyPermission(['channel-partner:read', 'channel-partner:read_all']) || 
     userPermissions.some(p => p.includes('channel-partner'));
 
   // If user has no permissions at all, show access denied

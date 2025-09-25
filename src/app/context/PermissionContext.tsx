@@ -25,10 +25,7 @@ interface PermissionProviderProps {
 }
 
 export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children }) => {
-  const { user } = useAuth();
-
-  // Extract allowed permissions from the user object
-  const userPermissions = user?.permissions?.allowed || [];
+  const { userPermissions } = useAuth();
 
   const hasPermission = (permission: string): boolean => {
     return userPermissions.includes(permission);

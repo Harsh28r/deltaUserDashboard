@@ -5,6 +5,7 @@ import { Icon } from "@iconify/react";
 import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import { API_ENDPOINTS } from "@/lib/config";
+import PermissionGate from "@/app/components/auth/PermissionGate";
 
 interface ChannelPartner {
   _id: string;
@@ -176,22 +177,26 @@ const ChannelPartnerDetailsPage = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            color="blue"
-            onClick={() => router.push(`/apps/channel-partners/edit/${channelPartner._id}`)}
-            className="flex items-center gap-2"
-          >
-            <Icon icon="lucide:edit" className="w-4 h-4" />
-            Edit
-          </Button>
-          <Button
-            color="failure"
-            onClick={() => setDeleteModalOpen(true)}
-            className="flex items-center gap-2"
-          >
-            <Icon icon="lucide:trash-2" className="w-4 h-4" />
-            Delete
-          </Button>
+          <PermissionGate permissions={["channel-partner:update", "channel-partners:update"]}>
+            <Button
+              color="blue"
+              onClick={() => router.push(`/apps/channel-partners/edit/${channelPartner._id}`)}
+              className="flex items-center gap-2"
+            >
+              <Icon icon="lucide:edit" className="w-4 h-4" />
+              Edit
+            </Button>
+          </PermissionGate>
+          <PermissionGate permissions={["channel-partner:delete", "channel-partners:delete"]}>
+            <Button
+              color="failure"
+              onClick={() => setDeleteModalOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <Icon icon="lucide:trash-2" className="w-4 h-4" />
+              Delete
+            </Button>
+          </PermissionGate>
         </div>
       </div>
 

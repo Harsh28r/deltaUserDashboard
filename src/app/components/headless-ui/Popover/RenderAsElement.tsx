@@ -6,6 +6,7 @@ import {
 } from "@headlessui/react";
 import { forwardRef } from "react";
 import CardBox from "../../shared/CardBox";
+import Link from "next/link";
 import RenderPopoverCode from "./Code/RenderPopoverCode";
 
 let MyCustomButton = forwardRef(function (props: any, ref: any) {
@@ -35,18 +36,10 @@ const RenderAsElement = () => {
               className="w-60 py-4 rounded-sm bg-white dark:bg-dark text-sm shadow-md dark:shadow-dark-md transition duration-200 ease-in-out [--anchor-gap:var(--spacing-5)] data-[closed]:-translate-y-1 data-[closed]:opacity-0"
             >
               <div className="flex flex-col gap-1">
-                <a href="/analytics" className="ui-dropdown-item">
-                  Analytics
-                </a>
-                <a href="/engagement" className="ui-dropdown-item">
-                  Engagement
-                </a>
-                <a href="/security" className="ui-dropdown-item">
-                  Security
-                </a>
-                <a href="/integrations" className="ui-dropdown-item">
-                  Integrations
-                </a>
+                <Link href="/analytics" className="ui-dropdown-item">Analytics</Link>
+                <Link href="/engagement" className="ui-dropdown-item">Engagement</Link>
+                <Link href="/security" className="ui-dropdown-item">Security</Link>
+                <Link href="/integrations" className="ui-dropdown-item">Integrations</Link>
               </div>
             </PopoverPanel>
           </Popover>

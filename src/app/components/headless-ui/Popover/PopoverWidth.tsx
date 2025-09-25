@@ -1,3 +1,4 @@
+import Link from "next/link";
 import React from "react";
 import { Popover, PopoverButton, PopoverPanel } from "@headlessui/react";
 import CardBox from "../../shared/CardBox";
@@ -20,18 +21,10 @@ const PopoverWidth = () => {
               className="w-52 py-4 rounded-sm bg-white dark:bg-dark text-sm shadow-md dark:shadow-dark-md transition duration-200 ease-in-out [--anchor-gap:var(--spacing-5)] data-[closed]:-translate-y-1 data-[closed]:opacity-0"
             >
               <div className="flex flex-col gap-1">
-                <a href="/analytics" className="ui-dropdown-item">
-                  Analytics
-                </a>
-                <a href="/engagement" className="ui-dropdown-item">
-                  Engagement
-                </a>
-                <a href="/security" className="ui-dropdown-item">
-                  Security
-                </a>
-                <a href="/integrations" className="ui-dropdown-item">
-                  Integrations
-                </a>
+                <Link href="/analytics" className="ui-dropdown-item">Analytics</Link>
+                <Link href="/engagement" className="ui-dropdown-item">Engagement</Link>
+                <Link href="/security" className="ui-dropdown-item">Security</Link>
+                <Link href="/integrations" className="ui-dropdown-item">Integrations</Link>
               </div>
             </PopoverPanel>
           </Popover>

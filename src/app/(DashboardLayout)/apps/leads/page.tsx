@@ -5,6 +5,7 @@ import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import { API_ENDPOINTS } from "@/lib/config";
+import PermissionGate from "@/app/components/auth/PermissionGate";
 
 interface Lead {
   _id: string;
@@ -18,11 +19,13 @@ interface Lead {
   createdAt: string;
   updatedAt: string;
   isActive: boolean;
+  ownerName: string;
 }
 
 const LeadsPage = () => {
   const router = useRouter();
-  const { token, user, userPermissions } = useAuth();
+  const { token, user, userPermissions, projectAccess } = useAuth();
+  const canCreateLead = (userPermissions || []).includes('leads:create') || (projectAccess?.assignedProjects?.length || 0) > 0 || projectAccess?.canAccessAll;
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,8 +78,35 @@ const LeadsPage = () => {
 
       const data = await response.json();
       console.log('Backend data received:', data);
-      const leadsData = data.leads || data || [];
-      setLeads(leadsData);
+      const leadsData = (data.leads || data || []) as any[];
+      const mapped = leadsData.map((raw) => {
+        const cd = raw.customData || {};
+        const nameFromCustom = cd["First Name"] && cd["Last Name"] ? `${cd["First Name"]} ${cd["Last Name"]}` : cd["First Name"] || raw.name || "";
+        const email = cd["Email"] || raw.email || "";
+        const phone = cd["Phone"] || raw.phone || "";
+        const company = cd["Company"] || raw.company || "";
+        const source = raw.leadSource?.name || raw.source || "";
+        const status = raw.currentStatus?.name || raw.status || "";
+        const notes = cd["Notes"] || raw.notes || "";
+        const ownerName = typeof raw.owner === 'object' && raw.owner !== null
+          ? (raw.owner.name || raw.owner.fullName || raw.owner.email || '')
+          : (raw.owner || raw.user?.name || raw.createdBy?.name || '');
+        return {
+          _id: raw._id,
+          name: nameFromCustom,
+          email,
+          phone,
+          company,
+          source,
+          status,
+          notes,
+          createdAt: raw.createdAt,
+          updatedAt: raw.updatedAt,
+          isActive: raw.isActive ?? true,
+          ownerName: ownerName || 'N/A',
+        } as Lead;
+      });
+      setLeads(mapped);
     } catch (err: any) {
       console.error("Error fetching leads:", err);
       setError(err.message || "Failed to fetch leads");
@@ -147,14 +177,16 @@ const LeadsPage = () => {
           <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
           <p className="text-gray-600">Manage your lead pipeline</p>
         </div>
-        <Button
-          color="orange"
-          onClick={() => router.push('/apps/leads/add')}
-          className="flex items-center gap-2"
-        >
-          <Icon icon="lucide:plus" className="w-4 h-4" />
-          Add Lead
-        </Button>
+        {canCreateLead && (
+          <Button
+            color="orange"
+            onClick={() => router.push('/apps/leads/add')}
+            className="flex items-center gap-2"
+          >
+            <Icon icon="lucide:plus" className="w-4 h-4" />
+            Add Lead
+          </Button>
+        )}
       </div>
 
       {error && (
@@ -170,14 +202,16 @@ const LeadsPage = () => {
             <Icon icon="lucide:users" className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No Leads</h3>
             <p className="text-gray-600 mb-4">Get started by adding your first lead.</p>
-            <Button
-              color="orange"
-              onClick={() => router.push('/apps/leads/add')}
-              className="flex items-center gap-2"
-            >
-              <Icon icon="lucide:plus" className="w-4 h-4" />
-              Add Lead
-            </Button>
+            {canCreateLead && (
+              <Button
+                color="orange"
+                onClick={() => router.push('/apps/leads/add')}
+                className="flex items-center gap-2"
+              >
+                <Icon icon="lucide:plus" className="w-4 h-4" />
+                Add Lead
+              </Button>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -186,9 +220,9 @@ const LeadsPage = () => {
                 <Table.HeadCell>Name</Table.HeadCell>
                 <Table.HeadCell>Email</Table.HeadCell>
                 <Table.HeadCell>Phone</Table.HeadCell>
-                <Table.HeadCell>Company</Table.HeadCell>
                 <Table.HeadCell>Source</Table.HeadCell>
                 <Table.HeadCell>Status</Table.HeadCell>
+                <Table.HeadCell>Owner</Table.HeadCell>
                 <Table.HeadCell>Created</Table.HeadCell>
                 <Table.HeadCell>Actions</Table.HeadCell>
               </Table.Head>
@@ -200,7 +234,6 @@ const LeadsPage = () => {
                     </Table.Cell>
                     <Table.Cell>{lead.email}</Table.Cell>
                     <Table.Cell>{lead.phone}</Table.Cell>
-                    <Table.Cell>{lead.company || 'N/A'}</Table.Cell>
                     <Table.Cell>
                       <Badge color="blue" size="sm">
                         {lead.source}
@@ -214,33 +247,40 @@ const LeadsPage = () => {
                         {lead.status}
                       </Badge>
                     </Table.Cell>
+                    <Table.Cell>{lead.ownerName}</Table.Cell>
                     <Table.Cell>{formatDate(lead.createdAt)}</Table.Cell>
                     <Table.Cell>
                       <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          color="gray"
-                          onClick={() => router.push(`/apps/leads/${lead._id}`)}
-                          title="View Details"
-                        >
-                          <Icon icon="lucide:eye" className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          color="blue"
-                          onClick={() => router.push(`/apps/leads/edit/${lead._id}`)}
-                          title="Edit"
-                        >
-                          <Icon icon="lucide:edit" className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          color="failure"
-                          onClick={() => handleDelete(lead)}
-                          title="Delete"
-                        >
-                          <Icon icon="lucide:trash-2" className="w-3 h-3" />
-                        </Button>
+                        <PermissionGate permission="leads:read">
+                          <Button
+                            size="sm"
+                            color="gray"
+                            onClick={() => router.push(`/apps/leads/${lead._id}`)}
+                            title="View Details"
+                          >
+                            <Icon icon="lucide:eye" className="w-3 h-3" />
+                          </Button>
+                        </PermissionGate>
+                        <PermissionGate permission="leads:update">
+                          <Button
+                            size="sm"
+                            color="blue"
+                            onClick={() => router.push(`/apps/leads/edit/${lead._id}`)}
+                            title="Edit"
+                          >
+                            <Icon icon="lucide:edit" className="w-3 h-3" />
+                          </Button>
+                        </PermissionGate>
+                        <PermissionGate permission="leads:delete">
+                          <Button
+                            size="sm"
+                            color="failure"
+                            onClick={() => handleDelete(lead)}
+                            title="Delete"
+                          >
+                            <Icon icon="lucide:trash-2" className="w-3 h-3" />
+                          </Button>
+                        </PermissionGate>
                       </div>
                     </Table.Cell>
                   </Table.Row>

@@ -64,6 +64,24 @@ const Profile = () => {
                   </span>
                 )}
               </div>
+              {projectAccess?.assignedProjects && projectAccess.assignedProjects.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
+                    <Icon icon="solar:folder-line-duotone" className="w-3 h-3" />
+                    Assigned Projects
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {projectAccess.assignedProjects.slice(0, 3).map((p) => (
+                      <span key={p.id} className="px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200">
+                        {p.name}
+                      </span>
+                    ))}
+                    {projectAccess.assignedProjects.length > 3 && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200">+{projectAccess.assignedProjects.length - 3} more</span>
+                    )}
+                  </div>
+                </div>
+              )}
               <p className="card-subtitle mb-0 mt-1 flex items-center">
                 <Icon
                   icon="solar:mailbox-line-duotone"

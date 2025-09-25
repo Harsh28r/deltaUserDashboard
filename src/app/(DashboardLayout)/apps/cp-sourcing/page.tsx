@@ -4,8 +4,9 @@ import { Button, Card, Table, Badge, Modal, Alert } from "flowbite-react";
 import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
-import { API_ENDPOINTS, API_BASE_URL } from "@/lib/config";
+import { API_ENDPOINTS, API_BASE_URL } from "@/lib/config"; // Fixed API_BASE_URL import
 import LocationMap from "@/app/components/LocationMap";
+import PermissionGate from "@/app/components/auth/PermissionGate";
 
 interface User {
   _id: string;
@@ -91,11 +92,11 @@ const CPSourcingPage = () => {
       const data = await response.json();
       console.log('API Response:', data);
       
-      // Ensure we always have an array
+      // Handle the paginated response structure
       let sourcingList = [];
-      if (Array.isArray(data.cpSourcings)) {
+      if (data.cpSourcings && Array.isArray(data.cpSourcings)) {
         sourcingList = data.cpSourcings;
-      } else if (Array.isArray(data.cpSourcing)) {
+      } else if (data.cpSourcing && Array.isArray(data.cpSourcing)) {
         sourcingList = data.cpSourcing;
       } else if (Array.isArray(data)) {
         sourcingList = data;
@@ -103,6 +104,9 @@ const CPSourcingPage = () => {
         console.warn('Unexpected API response structure:', data);
         sourcingList = [];
       }
+      
+      console.log('Total items:', data.pagination?.totalItems || 0);
+      console.log('Current page:', data.pagination?.currentPage || 1);
       
       console.log('Parsed sourcing list:', sourcingList);
       setCpSourcingList(sourcingList);
@@ -353,14 +357,16 @@ const CPSourcingPage = () => {
           <p className="text-gray-600">Manage channel partner sourcing activities</p>
         </div>
         <div className="flex gap-2">
-          <Button
-            color="orange"
-            onClick={() => router.push('/apps/cp-sourcing/add')}
-            className="flex items-center gap-2"
-          >
-            <Icon icon="lucide:plus" className="w-4 h-4" />
-            Add CP Sourcing
-          </Button>
+          <PermissionGate permission="cp-sourcing:create">
+            <Button
+              color="orange"
+              onClick={() => router.push('/apps/cp-sourcing/add')}
+              className="flex items-center gap-2"
+            >
+              <Icon icon="lucide:plus" className="w-4 h-4" />
+              Add CP Sourcing
+            </Button>
+          </PermissionGate>
         </div>
       </div>
 
@@ -371,20 +377,23 @@ const CPSourcingPage = () => {
         </Alert>
       )}
 
+
       <Card>
         {!Array.isArray(cpSourcingList) || cpSourcingList.length === 0 ? (
           <div className="text-center py-12">
             <Icon icon="lucide:handshake" className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No CP Sourcing Data</h3>
             <p className="text-gray-600 mb-4">Get started by adding your first CP sourcing activity.</p>
-            <Button
-              color="orange"
-              onClick={() => router.push('/apps/cp-sourcing/add')}
-              className="flex items-center gap-2"
-            >
-              <Icon icon="lucide:plus" className="w-4 h-4" />
-              Add CP Sourcing
-            </Button>
+            <PermissionGate permission="cp-sourcing:create">
+              <Button
+                color="orange"
+                onClick={() => router.push('/apps/cp-sourcing/add')}
+                className="flex items-center gap-2"
+              >
+                <Icon icon="lucide:plus" className="w-4 h-4" />
+                Add CP Sourcing
+              </Button>
+            </PermissionGate>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -393,6 +402,7 @@ const CPSourcingPage = () => {
                 <Table.HeadCell>Partner Name</Table.HeadCell>
                 <Table.HeadCell>Phone</Table.HeadCell>
                 <Table.HeadCell>Project</Table.HeadCell>
+                <Table.HeadCell>Owner</Table.HeadCell>
                 <Table.HeadCell>Latest Location</Table.HeadCell>
                 <Table.HeadCell>Map</Table.HeadCell>
                 <Table.HeadCell>Latest Selfie</Table.HeadCell>
@@ -426,6 +436,16 @@ const CPSourcingPage = () => {
                       <Badge color="blue" size="sm">
                         {getProjectName(sourcing.projectId)}
                       </Badge>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <div className="flex flex-col">
+                        <span className="text-sm text-gray-900">
+                          {sourcing.userId?.name || 'Unknown Owner'}
+                        </span>
+                        {sourcing.userId?.email && (
+                          <span className="text-xs text-gray-500">{sourcing.userId.email}</span>
+                        )}
+                      </div>
                     </Table.Cell>
                     <Table.Cell>
                       <span className="text-xs text-gray-500">
@@ -482,22 +502,26 @@ const CPSourcingPage = () => {
                         >
                           <Icon icon="lucide:eye" className="w-3 h-3" />
                         </Button>
-                        <Button
-                          size="sm"
-                          color="blue"
-                          onClick={() => router.push(`/apps/cp-sourcing/edit/${sourcing._id}`)}
-                          title="Edit"
-                        >
-                          <Icon icon="lucide:edit" className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          color="failure"
-                          onClick={() => setSourcingToDelete(sourcing)}
-                          title="Delete"
-                        >
-                          <Icon icon="lucide:trash-2" className="w-3 h-3" />
-                        </Button>
+                        <PermissionGate permission="cp-sourcing:update">
+                          <Button
+                            size="sm"
+                            color="blue"
+                            onClick={() => router.push(`/apps/cp-sourcing/edit/${sourcing._id}`)}
+                            title="Edit"
+                          >
+                            <Icon icon="lucide:edit" className="w-3 h-3" />
+                          </Button>
+                        </PermissionGate>
+                        <PermissionGate permission="cp-sourcing:delete">
+                          <Button
+                            size="sm"
+                            color="failure"
+                            onClick={() => setSourcingToDelete(sourcing)}
+                            title="Delete"
+                          >
+                            <Icon icon="lucide:trash-2" className="w-3 h-3" />
+                          </Button>
+                        </PermissionGate>
                       </div>
                     </Table.Cell>
                     </Table.Row>
@@ -524,7 +548,7 @@ const CPSourcingPage = () => {
             </p>
             <div className="bg-gray-50 p-4 rounded-lg text-left">
               <p><strong>Partner:</strong> {sourcingToDelete?.channelPartnerId?.name || 'Unknown'}</p>
-              <p><strong>Project:</strong> {getProjectName(sourcingToDelete?.projectId)}</p>
+              <p><strong>Sourcing:</strong> {getProjectName(sourcingToDelete?.projectId)}</p>
               <p><strong>Status:</strong> {sourcingToDelete?.isActive ? 'Active' : 'Inactive'}</p>
               <p><strong>Visits:</strong> {sourcingToDelete?.sourcingHistory?.length || 0} visit(s)</p>
             </div>
@@ -544,4 +568,3 @@ const CPSourcingPage = () => {
 };
 
 export default CPSourcingPage;
-

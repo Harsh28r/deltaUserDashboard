@@ -44,21 +44,27 @@ const Miniicons: MiniiconsType[] = [
   },
   {
     id: 7,
+    icon: "solar:map-point-line-duotone",
+    tooltip: "CP Sourcing",
+    permission: "cp-sourcing:read",
+  },
+  {
+    id: 8,
     icon: "solar:palette-round-line-duotone",
     tooltip: "Ui Components",
   },
   {
-    id: 8,
+    id: 9,
     icon: "solar:chart-line-duotone",
     tooltip: "Charts",
   },
   {
-    id: 9,
+    id: 10,
     icon: "solar:widget-6-line-duotone",
     tooltip: "Forms",
   },
   {
-    id: 10,
+    id: 11,
     icon: "solar:lock-keyhole-line-duotone",
     tooltip: "Authentication Pages",
   },

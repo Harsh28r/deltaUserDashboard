@@ -5,6 +5,7 @@ import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import { API_ENDPOINTS } from "@/lib/config";
+import PermissionGate from "@/app/components/auth/PermissionGate";
 
 interface FormData {
   name: string;
@@ -446,24 +447,26 @@ const AddChannelPartnerPage = () => {
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              color="orange"
-              disabled={isSubmitting}
-              className="flex items-center gap-2"
-            >
-              {isSubmitting ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Icon icon="lucide:plus" className="w-4 h-4" />
-                  Create Channel Partner
-                </>
-              )}
-            </Button>
+            <PermissionGate permissions={["channel-partner:create", "channel-partners:create"]}>
+              <Button
+                type="submit"
+                color="orange"
+                disabled={isSubmitting}
+                className="flex items-center gap-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Icon icon="lucide:plus" className="w-4 h-4" />
+                    Create Channel Partner
+                  </>
+                )}
+              </Button>
+            </PermissionGate>
           </div>
         </form>
       </Card>

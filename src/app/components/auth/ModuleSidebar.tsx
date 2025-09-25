@@ -10,12 +10,14 @@ import SideProfile from "@/app/(DashboardLayout)/layout/vertical/sidebar/SidePro
 import { useAuth } from "@/app/context/AuthContext";
 import { usePermissions } from "@/app/context/PermissionContext";
 import { useModuleSelection } from "@/app/context/ModuleContext";
+import { useRouter } from "next/navigation";
 
 const ModuleSidebar = () => {
   const { user, userPermissions } = useAuth();
   const { hasAnyPermission } = usePermissions();
   const { selectedModule, setSelectedModule } = useModuleSelection();
   const [expandedModules, setExpandedModules] = useState<string[]>([]);
+  const router = useRouter();
 
 
 
@@ -40,7 +42,7 @@ const ModuleSidebar = () => {
         {
           id: 'leadsource',
           name: 'Lead Sources',
-          permission: 'lead-source:read',
+          permission: 'leadssource:read',
           description: 'Manage lead sources'
         },
         {
@@ -58,6 +60,15 @@ const ModuleSidebar = () => {
       color: 'text-purple-600',
       permission: 'channel-partner:read',
       description: 'Manage channel partners',
+      hasSubmenu: false
+    },
+    {
+      id: 'cp-sourcing',
+      name: 'CP Sourcing',
+      icon: 'solar:map-point-line-duotone',
+      color: 'text-green-600',
+      permission: 'cp-sourcing:read',
+      description: 'Channel partner sourcing activities',
       hasSubmenu: false
     },
     {
@@ -95,6 +106,7 @@ const ModuleSidebar = () => {
     const routes: { [key: string]: string } = {
       'leads': '/apps/leads',
       'channel-partners': '/apps/channel-partners',
+      'cp-sourcing': '/apps/cp-sourcing',
       'notifications': '/apps/notifications',
       'usermanagement': '/apps/user-management',
     };
@@ -175,8 +187,8 @@ const ModuleSidebar = () => {
                             toggleExpanded(module.id);
                           } else {
                             setSelectedModule(module.id);
-                            // Navigate to the module page
-                            window.location.href = getModuleRoute(module.id);
+                            // Client-side navigation
+                            router.push(getModuleRoute(module.id));
                           }
                         }}
                         className={`transition-all cursor-pointer ${
@@ -221,8 +233,8 @@ const ModuleSidebar = () => {
                               onClick={(e: React.MouseEvent) => {
                                 e.preventDefault();
                                 setSelectedModule(subItem.id);
-                                // Navigate to the submenu page
-                                window.location.href = getSubmenuRoute(subItem.id);
+                                // Client-side navigation
+                                router.push(getSubmenuRoute(subItem.id));
                               }}
                               className={`transition-all cursor-pointer text-sm ${
                                 selectedModule === subItem.id

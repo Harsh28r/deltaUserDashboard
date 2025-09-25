@@ -195,6 +195,19 @@ const UserInfoCard = () => {
         </div>
         
         <div className="space-y-4">
+          {projectAccess?.assignedProjects && projectAccess.assignedProjects.length > 0 && (
+            <div>
+              <label className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Assigned Projects</label>
+              <div className="flex flex-wrap gap-2">
+                {projectAccess.assignedProjects.map((p) => (
+                  <Badge key={p.id} color="info" size="sm">
+                    {p.name}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Access Level</label>

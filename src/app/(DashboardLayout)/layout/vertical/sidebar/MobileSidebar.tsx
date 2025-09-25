@@ -56,8 +56,17 @@ const MobileSidebar = ({ onClose }: MobileSidebarProps) => {
       name: 'Channel Partners',
       icon: 'solar:users-group-two-rounded-line-duotone',
       color: 'text-purple-600',
-      permission: 'channel-partners:read',
+      permission: 'channel-partner:read',
       description: 'Manage channel partners',
+      hasSubmenu: false
+    },
+    {
+      id: 'cp-sourcing',
+      name: 'CP Sourcing',
+      icon: 'solar:map-point-line-duotone',
+      color: 'text-green-600',
+      permission: 'cp-sourcing:read',
+      description: 'Channel partner sourcing activities',
       hasSubmenu: false
     },
     {

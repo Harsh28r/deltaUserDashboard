@@ -35,6 +35,13 @@ interface AuthContextType {
   userPermissions: string[];
   projectAccess: {
     canAccessAll: boolean;
+    assignedProjects?: Array<{
+      id: string;
+      name: string;
+      location?: string;
+      developBy?: string;
+      assignedAt?: string;
+    }>;
     allowedProjects: string[];
     deniedProjects: string[];
     maxProjects: number | null;
@@ -111,6 +118,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (profileData.permissions) {
           const permissions = profileData.permissions.allowed || [];
           setUserPermissions(permissions);
+          // Persist permissions in a cookie for middleware-based route guarding (no flicker)
+          try {
+            const encoded = encodeURIComponent(btoa(JSON.stringify(permissions)));
+            document.cookie = `auth_perms=${encoded}; path=/; SameSite=Lax`;
+          } catch (e) {
+            // noop
+          }
         }
         
         // Update project access

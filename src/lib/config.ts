@@ -44,12 +44,12 @@ export const API_ENDPOINTS = {
   // Leads
   LEADS: (projectId?: string) => projectId ? `${API_BASE_URL}/api/leads?projectId=${projectId}` : `${API_BASE_URL}/api/leads`,
   LEAD_BY_ID: (id: string) => `${API_BASE_URL}/api/leads/${id}`,
-  CREATE_LEAD: (projectId: string) => `${API_BASE_URL}/api/leads?projectId=${projectId}`,
+  CREATE_LEAD: (projectId: string) => `${API_BASE_URL}/api/leads`,
   UPDATE_LEAD: (id: string) => `${API_BASE_URL}/api/leads/${id}`,
   DELETE_LEAD: (id: string) => `${API_BASE_URL}/api/leads/${id}`,
   BULK_TRANSFER_LEADS: `${API_BASE_URL}/api/leads/bulk-transfer`,
-  CP_SOURCING_UNIQUE_USERS: (projectId: string, channelPartnerId: string) => `${API_BASE_URL}/api/leads/cp-sourcing-unique-users?projectId=${projectId}&channelPartnerId=${channelPartnerId}`,
-  CP_SOURCING_UNIQUE_USERS_ALL: `${API_BASE_URL}/api/leads/cp-sourcing-unique-users`,
+  CP_SOURCING_UNIQUE_USERS: (projectId: string, channelPartnerId: string) => `${API_BASE_URL}/api/cp-sourcing/unique-users?projectId=${projectId}&channelPartnerId=${channelPartnerId}`,
+  CP_SOURCING_UNIQUE_USERS_ALL: `${API_BASE_URL}/api/cp-sourcing-unique-users`,
   
   // Channel Partners
   CHANNEL_PARTNERS: `${API_BASE_URL}/api/channel-partner/`,

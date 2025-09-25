@@ -5,6 +5,7 @@ import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import { API_ENDPOINTS } from "@/lib/config";
+import PermissionGate from "@/app/components/auth/PermissionGate";
 
 interface ChannelPartner {
   _id: string;
@@ -149,14 +150,16 @@ const ChannelPartnersPage = () => {
           <h1 className="text-2xl font-bold text-gray-900">Channel Partners</h1>
           <p className="text-gray-600">Manage your channel partner network</p>
         </div>
-        <Button
-          color="orange"
-          onClick={() => router.push('/apps/channel-partners/add')}
-          className="flex items-center gap-2"
-        >
-          <Icon icon="lucide:plus" className="w-4 h-4" />
-          Add Channel Partner
-        </Button>
+        <PermissionGate permissions={["channel-partner:create", "channel-partners:create"]}>
+          <Button
+            color="orange"
+            onClick={() => router.push('/apps/channel-partners/add')}
+            className="flex items-center gap-2"
+          >
+            <Icon icon="lucide:plus" className="w-4 h-4" />
+            Add Channel Partner
+          </Button>
+        </PermissionGate>
       </div>
 
       {error && (
@@ -172,14 +175,16 @@ const ChannelPartnersPage = () => {
             <Icon icon="lucide:users" className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No Channel Partners</h3>
             <p className="text-gray-600 mb-4">Get started by adding your first channel partner.</p>
-            <Button
-              color="orange"
-              onClick={() => router.push('/apps/channel-partners/add')}
-              className="flex items-center gap-2"
-            >
-              <Icon icon="lucide:plus" className="w-4 h-4" />
-              Add Channel Partner
-            </Button>
+            <PermissionGate permissions={["channel-partner:create", "channel-partners:create"]}>
+              <Button
+                color="orange"
+                onClick={() => router.push('/apps/channel-partners/add')}
+                className="flex items-center gap-2"
+              >
+                <Icon icon="lucide:plus" className="w-4 h-4" />
+                Add Channel Partner
+              </Button>
+            </PermissionGate>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -240,22 +245,26 @@ const ChannelPartnersPage = () => {
                         >
                           <Icon icon="lucide:eye" className="w-3 h-3" />
                         </Button>
-                        <Button
-                          size="sm"
-                          color="blue"
-                          onClick={() => router.push(`/apps/channel-partners/edit/${partner._id}`)}
-                          title="Edit"
-                        >
-                          <Icon icon="lucide:edit" className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          color="failure"
-                          onClick={() => handleDelete(partner)}
-                          title="Delete"
-                        >
-                          <Icon icon="lucide:trash-2" className="w-3 h-3" />
-                        </Button>
+                        <PermissionGate permissions={["channel-partner:update", "channel-partners:update"]}>
+                          <Button
+                            size="sm"
+                            color="blue"
+                            onClick={() => router.push(`/apps/channel-partners/edit/${partner._id}`)}
+                            title="Edit"
+                          >
+                            <Icon icon="lucide:edit" className="w-3 h-3" />
+                          </Button>
+                        </PermissionGate>
+                        <PermissionGate permissions={["channel-partner:delete", "channel-partners:delete"]}>
+                          <Button
+                            size="sm"
+                            color="failure"
+                            onClick={() => handleDelete(partner)}
+                            title="Delete"
+                          >
+                            <Icon icon="lucide:trash-2" className="w-3 h-3" />
+                          </Button>
+                        </PermissionGate>
                       </div>
                     </Table.Cell>
                   </Table.Row>
