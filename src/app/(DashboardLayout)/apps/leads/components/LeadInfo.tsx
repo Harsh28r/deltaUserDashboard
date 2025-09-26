@@ -18,6 +18,7 @@ const LeadInfo: React.FC<LeadInfoProps> = ({
   onEditLead,
   onStatusChange
 }) => {
+  const cpList = Array.isArray(cpSourcingOptions) ? cpSourcingOptions : [];
   // Function to get source name with channel partner info
   const getSourceName = (lead: Lead) => {
     const channelPartnerId = lead.customData?.["Channel Partner"];
@@ -28,7 +29,7 @@ const LeadInfo: React.FC<LeadInfoProps> = ({
         
         const cpSourcingId = lead.customData?.["Channel Partner Sourcing"];
         if (cpSourcingId) {
-          const cpSourcing = cpSourcingOptions.find(cp => cp._id === cpSourcingId);
+          const cpSourcing = cpList.find(cp => cp._id === cpSourcingId);
           if (cpSourcing) {
             sourceName += ` (${cpSourcing.channelPartnerId.name} - ${cpSourcing.projectId.name})`;
           }
@@ -37,7 +38,7 @@ const LeadInfo: React.FC<LeadInfoProps> = ({
       } else {
         const cpSourcingId = lead.customData?.["Channel Partner Sourcing"];
         if (cpSourcingId) {
-          const cpSourcing = cpSourcingOptions.find(cp => cp._id === cpSourcingId);
+          const cpSourcing = cpList.find(cp => cp._id === cpSourcingId);
           if (cpSourcing) {
             return `Channel Partner: ${cpSourcing.channelPartnerId.name}`;
           }

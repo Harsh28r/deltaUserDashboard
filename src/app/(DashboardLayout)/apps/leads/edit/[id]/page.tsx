@@ -5,9 +5,10 @@ import { Button, Card, Label, Select, TextInput, Textarea, Alert, Badge } from "
 import { Icon } from "@iconify/react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
-import { API_ENDPOINTS } from "@/lib/config";
+import { API_ENDPOINTS, API_BASE_URL } from "@/lib/config";
 import { useLeadDetails } from "../../hooks/useLeadDetails";
 import { useLeadData } from "../../hooks/useLeadData";
+import { FormField } from "../../types";
 
 const EditLeadPage: React.FC = () => {
   const { token } = useAuth();
@@ -16,7 +17,7 @@ const EditLeadPage: React.FC = () => {
   const leadId = params.id as string;
 
   const { lead, isLoading, alertMessage, setAlertMessage, refreshLead } = useLeadDetails(leadId);
-  const { leadStatuses, leadSources, projects } = useLeadData();
+  const { leadStatuses, leadSources, projects, channelPartners } = useLeadData();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -32,7 +33,13 @@ const EditLeadPage: React.FC = () => {
     fundingMode: "",
     gender: "",
     budget: "",
+    channelPartner: "",
+    cpSourcingId: "",
   } as Record<string, any>);
+
+  const [cpSourcingOptions, setCPSourcingOptions] = useState<any[]>([]);
+  const [isLoadingCPSourcing, setIsLoadingCPSourcing] = useState(false);
+  // Status change is handled on the lead details page; no status state here
 
   // Populate initial form values when lead loads
   useEffect(() => {
@@ -50,6 +57,8 @@ const EditLeadPage: React.FC = () => {
       fundingMode: lead.customData?.["Funding Mode"] || "",
       gender: lead.customData?.["Gender"] || "",
       budget: lead.customData?.["Budget"] || "",
+      channelPartner: lead.customData?.["Channel Partner"] || "",
+      cpSourcingId: lead.customData?.["Channel Partner Sourcing"] || "",
     } as Record<string, any>;
 
     // Include status-specific fields if present
@@ -59,7 +68,54 @@ const EditLeadPage: React.FC = () => {
       });
     }
     setFormData(base);
+    // no-op for status in edit form
   }, [lead]);
+
+  const fetchCPSourcingUsers = async (projectId: string, channelPartnerId: string) => {
+    if (!projectId || !channelPartnerId) return;
+    try {
+      setIsLoadingCPSourcing(true);
+      const url = API_ENDPOINTS.CP_SOURCING_UNIQUE_USERS(projectId, channelPartnerId);
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) {
+        setCPSourcingOptions([]);
+        return;
+      }
+      const data = await res.json();
+      const arr = data.users || data || [];
+      const normalized = arr.map((u: any) => ({ _id: u._id || u.id || u.userId || u.email, name: u.name || u.fullName || u.email, email: u.email || '' }));
+      setCPSourcingOptions(normalized);
+    } catch (err) {
+      setCPSourcingOptions([]);
+    } finally {
+      setIsLoadingCPSourcing(false);
+    }
+  };
+
+  const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newProjectId = e.target.value;
+    setFormData({ ...formData, project: newProjectId, cpSourcingId: "" });
+    setCPSourcingOptions([]);
+    if (formData.channelPartner && newProjectId) {
+      fetchCPSourcingUsers(newProjectId, formData.channelPartner);
+    }
+  };
+
+  const handleLeadSourceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newSource = e.target.value;
+    const isChannelPartnerSource = newSource === 'channel-partner' || leadSources.some(s => s._id === newSource && s.name?.toLowerCase?.() === 'channel partner');
+    setFormData({ ...formData, leadSource: newSource, ...(isChannelPartnerSource ? {} : { channelPartner: "", cpSourcingId: "" }) });
+    if (!isChannelPartnerSource) setCPSourcingOptions([]);
+  };
+
+  const handleChannelPartnerChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const cpId = e.target.value;
+    setFormData({ ...formData, channelPartner: cpId, cpSourcingId: "" });
+    setCPSourcingOptions([]);
+    if (cpId && formData.project) {
+      await fetchCPSourcingUsers(formData.project, cpId);
+    }
+  };
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,10 +136,20 @@ const EditLeadPage: React.FC = () => {
         "Budget": formData.budget,
       };
 
-      if (lead.currentStatus?.formFields) {
-        lead.currentStatus.formFields.forEach((field: any) => {
-          customData[field.name] = formData[field.name] || "";
-        });
+      if (formData.channelPartner) {
+        customData["Channel Partner"] = formData.channelPartner;
+      }
+      if (formData.cpSourcingId) {
+        customData["Channel Partner Sourcing"] = formData.cpSourcingId;
+      }
+
+      // Do not change status-related fields here; status is updated via dedicated modal
+
+      // Build request body with only allowed/changed fields
+      const requestBody: any = { customData };
+      const currentProjectId = lead.project?._id || '';
+      if (formData.project && formData.project !== currentProjectId) {
+        requestBody.projectId = formData.project;
       }
 
       const response = await fetch(API_ENDPOINTS.UPDATE_LEAD(lead._id), {
@@ -92,11 +158,7 @@ const EditLeadPage: React.FC = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          project: formData.project,
-          leadSource: formData.leadSource,
-          customData,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (response.ok) {
@@ -104,8 +166,17 @@ const EditLeadPage: React.FC = () => {
         await refreshLead();
         router.push(`/apps/leads/${lead._id}`);
       } else {
-        const errorData = await response.json().catch(() => ({} as any));
-        setAlertMessage({ type: 'error', message: errorData.message || `Failed to update lead: ${response.status}` });
+        let message = `Failed to update lead: ${response.status}`;
+        try {
+          const text = await response.text();
+          try {
+            const json = JSON.parse(text);
+            message = json.message || message;
+          } catch {
+            message = text || message;
+          }
+        } catch {}
+        setAlertMessage({ type: 'error', message });
       }
     } catch (err) {
       setAlertMessage({ type: 'error', message: 'Network error: Failed to update lead.' });
@@ -179,24 +250,62 @@ const EditLeadPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="leadSource" value="Lead Source" />
-              <Select id="leadSource" value={formData.leadSource} onChange={(e) => setFormData({ ...formData, leadSource: e.target.value })}>
+              <Select id="leadSource" value={formData.leadSource} onChange={handleLeadSourceChange}>
                 <option value="">Select Lead Source</option>
                 {leadSources.map((source) => (
                   <option key={source._id} value={source._id}>{source.name}</option>
                 ))}
+                {!leadSources.some(source => source.name?.toLowerCase?.() === 'channel partner') && (
+                  <option value="channel-partner">Channel Partner</option>
+                )}
               </Select>
             </div>
             <div>
               <Label htmlFor="project" value="Project" />
-              <Select id="project" value={formData.project} onChange={(e) => setFormData({ ...formData, project: e.target.value })}>
+              <Select id="project" value={formData.project} onChange={handleProjectChange}>
                 <option value="">Select Project</option>
                 {projects.map((project) => (
                   <option key={project._id} value={project._id}>{project.name}</option>
                 ))}
               </Select>
             </div>
+            {/* Change Status is available on Lead Details page */}
           </div>
         </Card>
+
+        {((formData.leadSource === 'channel-partner') || leadSources.some(source => source._id === formData.leadSource && source.name?.toLowerCase?.() === 'channel partner')) && (
+          <Card>
+            <div className="flex items-center mb-6">
+              <div className="bg-orange-100 dark:bg-orange-900/20 p-2 rounded-lg mr-3">
+                <Icon icon="solar:users-group-two-rounded-line-duotone" className="text-orange-600 dark:text-orange-400 text-xl" />
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Channel Partner Selection</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Select channel partner and CP sourcing user</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="channelPartner" value="Select Channel Partner" />
+                <Select id="channelPartner" value={formData.channelPartner} onChange={handleChannelPartnerChange}>
+                  <option value="">Select a channel partner</option>
+                  {channelPartners.map((partner: any) => (
+                    <option key={partner._id} value={partner._id}>{partner.name}{partner.firmName ? ` - ${partner.firmName}` : ''}{partner.phone ? ` - ${partner.phone}` : ''}</option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="cpSourcingId" value="CP Sourcing User" />
+                <Select id="cpSourcingId" value={formData.cpSourcingId} onChange={(e) => setFormData({ ...formData, cpSourcingId: e.target.value })} disabled={isLoadingCPSourcing || !formData.channelPartner || !formData.project}>
+                  <option value="">{!formData.channelPartner || !formData.project ? 'Select channel partner and project first' : (isLoadingCPSourcing ? 'Loading users...' : 'Select CP sourcing user')}</option>
+                  {cpSourcingOptions.map((user: any) => (
+                    <option key={user._id} value={user._id}>{user.name}{user.email ? ` (${user.email})` : ''}</option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Additional Information */}
         <Card>
@@ -271,6 +380,8 @@ const EditLeadPage: React.FC = () => {
           </div>
         </Card>
 
+        {/* Status handled via separate modal */}
+
         <div className="flex gap-2 justify-end">
           <Button type="button" color="gray" onClick={() => router.push(`/apps/leads/${lead._id}`)}>Cancel</Button>
           <Button type="submit" disabled={isSubmitting}>
@@ -283,6 +394,8 @@ const EditLeadPage: React.FC = () => {
           </Button>
         </div>
       </form>
+
+      {/* Status change UI is removed from this form */}
     </div>
   );
 };

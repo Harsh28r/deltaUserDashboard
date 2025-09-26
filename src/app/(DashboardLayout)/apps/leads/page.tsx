@@ -1,11 +1,15 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Button, Card, Table, Badge, Modal, Alert } from "flowbite-react";
+import { Button, Card, Table, Badge, Modal, Alert, Label, Select, TextInput, Textarea } from "flowbite-react";
 import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import { API_ENDPOINTS } from "@/lib/config";
+import { useLeadData } from "./hooks/useLeadData";
+import { FormField } from "./types";
 import PermissionGate from "@/app/components/auth/PermissionGate";
+import { useLeadPermissions } from "@/hooks/use-permissions";
+import { PERMISSIONS } from "@/app/types/permissions";
 
 interface Lead {
   _id: string;
@@ -25,13 +29,23 @@ interface Lead {
 const LeadsPage = () => {
   const router = useRouter();
   const { token, user, userPermissions, projectAccess } = useAuth();
-  const canCreateLead = (userPermissions || []).includes('leads:create') || (projectAccess?.assignedProjects?.length || 0) > 0 || projectAccess?.canAccessAll;
+  const { canUpdateLeadStatus, canCreateLeads } = useLeadPermissions();
+  const canCreateLead = canCreateLeads || (projectAccess?.assignedProjects?.length || 0) > 0 || projectAccess?.canAccessAll;
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const { leadStatuses } = useLeadData();
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [isSubmittingStatus, setIsSubmittingStatus] = useState(false);
+  const [selectedStatusId, setSelectedStatusId] = useState<string>("");
+  const [statusRemark, setStatusRemark] = useState<string>("");
+  const [statusDynamicFields, setStatusDynamicFields] = useState<Record<string, any>>({});
+  const [selectedLeadFull, setSelectedLeadFull] = useState<any>(null);
+  const [isLoadingStatusLead, setIsLoadingStatusLead] = useState(false);
+  const [selectedLeadId, setSelectedLeadId] = useState<string>("");
 
   // Fetch leads
   useEffect(() => {
@@ -112,6 +126,76 @@ const LeadsPage = () => {
       setError(err.message || "Failed to fetch leads");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const getFieldsForStatus = (statusId: string) => {
+    const st = (leadStatuses || []).find((s: any) => s._id === statusId) as any;
+    return (st?.formFields || []) as FormField[];
+  };
+
+  const openStatusModal = (leadId: string) => {
+    const leadObj = leads.find(l => l._id === leadId);
+    if (!leadObj) {
+      setError('Failed to load lead from list.');
+      return;
+    }
+    setSelectedLeadId(leadId);
+    setSelectedLeadFull(leadObj);
+    setIsStatusModalOpen(true);
+    const currentId = (leadObj as any)?.currentStatus?._id || '';
+    setSelectedStatusId(currentId);
+    const fields = getFieldsForStatus(currentId);
+    const initVals: Record<string, any> = {};
+    fields.forEach((f) => { initVals[f.name] = (leadObj as any)?.customData?.[f.name] || ''; });
+    setStatusDynamicFields(initVals);
+    setStatusRemark("");
+  };
+
+  const submitStatusUpdate = async () => {
+    if (!token || !selectedStatusId) return;
+    try {
+      setIsSubmittingStatus(true);
+      // Build newData from existing customData + dynamic fields
+      const payloadCustomData: any = { ...((selectedLeadFull as any)?.customData || {}) };
+      const fields = getFieldsForStatus(selectedStatusId);
+      fields.forEach((f) => { payloadCustomData[f.name] = statusDynamicFields[f.name] ?? ''; });
+      const id = selectedLeadId || ((selectedLeadFull as any)?._id) || '';
+      if (!id) {
+        setError('Failed to resolve lead id for status update.');
+        setIsSubmittingStatus(false);
+        return;
+      }
+      const res = await fetch(`${API_ENDPOINTS.LEAD_BY_ID(id)}/status/`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+          body: JSON.stringify({
+            newStatus: selectedStatusId,
+            // Send only status-specific fields to minimize hierarchy validation
+            newData: {
+              ...getFieldsForStatus(selectedStatusId).reduce((acc, f) => {
+                acc[f.name] = statusDynamicFields[f.name] ?? '';
+                return acc;
+              }, {} as Record<string, any>),
+              Remark: statusRemark || 'Status updated'
+            },
+          }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        setError(errorData.message || `Failed to update status: ${res.status}`);
+        return;
+      }
+      setIsStatusModalOpen(false);
+      setSelectedLeadFull(null);
+      await fetchLeads();
+    } catch (e: any) {
+      setError(e?.message || 'Failed to update status');
+    } finally {
+      setIsSubmittingStatus(false);
     }
   };
 
@@ -251,7 +335,7 @@ const LeadsPage = () => {
                     <Table.Cell>{formatDate(lead.createdAt)}</Table.Cell>
                     <Table.Cell>
                       <div className="flex items-center gap-2">
-                        <PermissionGate permission="leads:read">
+                        <PermissionGate permission={PERMISSIONS.LEAD_READ}>
                           <Button
                             size="sm"
                             color="gray"
@@ -261,7 +345,7 @@ const LeadsPage = () => {
                             <Icon icon="lucide:eye" className="w-3 h-3" />
                           </Button>
                         </PermissionGate>
-                        <PermissionGate permission="leads:update">
+                        <PermissionGate permission={PERMISSIONS.LEAD_UPDATE}>
                           <Button
                             size="sm"
                             color="blue"
@@ -271,7 +355,17 @@ const LeadsPage = () => {
                             <Icon icon="lucide:edit" className="w-3 h-3" />
                           </Button>
                         </PermissionGate>
-                        <PermissionGate permission="leads:delete">
+                        {canUpdateLeadStatus && (
+                          <Button
+                            size="sm"
+                            color="info"
+                            onClick={() => openStatusModal(lead._id)}
+                            title="Change Status"
+                          >
+                            <Icon icon="solar:check-circle-line-duotone" className="w-3 h-3" />
+                          </Button>
+                        )}
+                        <PermissionGate permission={PERMISSIONS.LEAD_DELETE}>
                           <Button
                             size="sm"
                             color="failure"
@@ -320,6 +414,161 @@ const LeadsPage = () => {
               'Delete Lead'
             )}
           </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Change Status Modal */}
+      <Modal show={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} size="6xl">
+        <Modal.Header>Change Lead Status</Modal.Header>
+        <div className="p-2 max-h-[80vh] overflow-y-auto">
+          <div className="space-y-6">
+            <Card>
+              <div className="flex items-center mb-6">
+                <div className="bg-blue-100 dark:bg-blue-900/20 p-2 rounded-lg mr-3">
+                  <Icon icon="solar:user-line-duotone" className="text-blue-600 dark:text-blue-400 text-xl" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Basic Information</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="modal_name" value="Name" />
+                  <TextInput id="modal_name" value={`${selectedLeadFull?.customData?.["First Name"] || selectedLeadFull?.name || ''} ${selectedLeadFull?.customData?.["Last Name"] || ''}`.trim()} disabled />
+                </div>
+                <div>
+                  <Label htmlFor="modal_email" value="Email" />
+                  <TextInput id="modal_email" value={selectedLeadFull?.customData?.["Email"] || selectedLeadFull?.email || ''} disabled />
+                </div>
+                <div>
+                  <Label htmlFor="modal_phone" value="Phone" />
+                  <TextInput id="modal_phone" value={selectedLeadFull?.customData?.["Phone"] || selectedLeadFull?.phone || ''} disabled />
+                </div>
+              </div>
+            </Card>
+
+            <Card>
+              <div className="flex items-center mb-6">
+                <div className="bg-green-100 dark:bg-green-900/20 p-2 rounded-lg mr-3">
+                  <Icon icon="solar:chart-line-duotone" className="text-green-600 dark:text-green-400 text-xl" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Lead Details</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Change status and fill required fields</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="modal_status" value="Lead Status" />
+                  <Select id="modal_status" value={selectedStatusId} onChange={(e) => {
+                    const next = e.target.value;
+                    setSelectedStatusId(next);
+                    if (selectedLeadFull) {
+                      const fields = getFieldsForStatus(next);
+                      const initVals: Record<string, any> = {};
+                      fields.forEach((f) => { initVals[f.name] = selectedLeadFull?.customData?.[f.name] || ''; });
+                      setStatusDynamicFields(initVals);
+                    }
+                  }}>
+                    <option value="">Select status</option>
+                    {leadStatuses.map((s: any) => (
+                      <option key={s._id} value={s._id}>{s.name}</option>
+                    ))}
+                  </Select>
+                </div>
+              </div>
+            </Card>
+
+            {selectedStatusId && getFieldsForStatus(selectedStatusId).length > 0 && (
+              <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 border-blue-200 dark:border-blue-700">
+                <div className="flex items-center mb-6">
+                  <div className="bg-blue-100 dark:bg-blue-900/20 p-2 rounded-lg mr-3">
+                    <Icon icon="solar:settings-line-duotone" className="text-blue-600 dark:text-blue-400 text-xl" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Additional Required Fields</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">for "{leadStatuses.find((s: any) => s._id === selectedStatusId)?.name}" Status</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {getFieldsForStatus(selectedStatusId).map((field: FormField) => (
+                    <div key={field._id || field.name} className="space-y-2">
+                      <Label htmlFor={`statusField_${field._id || field.name}`} value={`${field.name}${field.required ? ' *' : ''}`} />
+                      {field.type === 'select' && field.options && field.options.length > 0 ? (
+                        <Select id={`statusField_${field._id || field.name}`} value={statusDynamicFields[field.name] || ''} onChange={(e) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} required={field.required}>
+                          <option value="">Select {field.name}</option>
+                          {field.options.map((option: any, index: number) => (
+                            <option key={index} value={(option as any).value || option as any}>{(option as any).label || option as any}</option>
+                          ))}
+                        </Select>
+                      ) : field.type === 'checkbox' && field.options && field.options.length > 0 ? (
+                        <div className="space-y-2">
+                          {field.options.map((option: any, index: number) => {
+                            const optionValue = (option as any).value || option as any;
+                            const currentValues = statusDynamicFields[field.name] || '';
+                            const isChecked = Array.isArray(currentValues) ? currentValues.includes(optionValue) : currentValues === optionValue;
+                            return (
+                              <div key={index} className="flex items-center">
+                                <input type="checkbox" id={`${field._id || field.name}_${index}`} checked={isChecked} onChange={(e) => {
+                                  const current = statusDynamicFields[field.name] || '';
+                                  let newValues;
+                                  if (Array.isArray(current)) {
+                                    newValues = e.target.checked ? [...current, optionValue] : current.filter((v: string) => v !== optionValue);
+                                  } else {
+                                    newValues = e.target.checked ? [optionValue] : [];
+                                  }
+                                  setStatusDynamicFields(prev => ({ ...prev, [field.name]: newValues }));
+                                }} className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" />
+                                <label htmlFor={`${field._id || field.name}_${index}`} className="ml-2 text-sm text-gray-700 dark:text-gray-300">{(option as any).label || option as any}</label>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : field.type === 'textarea' ? (
+                        <Textarea id={`statusField_${field._id || field.name}`} value={statusDynamicFields[field.name] || ''} onChange={(e) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} rows={3} placeholder={`Enter ${field.name.toLowerCase()}`} required={field.required} />
+                      ) : field.type === 'number' ? (
+                        <TextInput id={`statusField_${field._id || field.name}`} type="number" value={statusDynamicFields[field.name] || ''} onChange={(e) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} placeholder={`Enter ${field.name.toLowerCase()}`} required={field.required} />
+                      ) : field.type === 'date' ? (
+                        <TextInput id={`statusField_${field._id || field.name}`} type="date" value={statusDynamicFields[field.name] || ''} onChange={(e) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} required={field.required} />
+                      ) : field.type === 'email' ? (
+                        <TextInput id={`statusField_${field._id || field.name}`} type="email" value={statusDynamicFields[field.name] || ''} onChange={(e) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} placeholder={`Enter ${field.name.toLowerCase()}`} required={field.required} />
+                      ) : field.type === 'tel' ? (
+                        <TextInput id={`statusField_${field._id || field.name}`} type="tel" value={statusDynamicFields[field.name] || ''} onChange={(e) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} placeholder={`Enter ${field.name.toLowerCase()}`} required={field.required} />
+                      ) : (
+                        <TextInput id={`statusField_${field._id || field.name}`} type="text" value={statusDynamicFields[field.name] || ''} onChange={(e) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} placeholder={`Enter ${field.name.toLowerCase()}`} required={field.required} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            <Card>
+              <div className="flex items-center mb-6">
+                <div className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg mr-3">
+                  <Icon icon="solar:notes-line-duotone" className="text-gray-600 dark:text-gray-400 text-xl" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Additional Notes</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Add any additional information about this status change</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="statusRemark" value="Remark" />
+                <Textarea id="statusRemark" rows={3} placeholder="Enter remark for this status change" value={statusRemark} onChange={(e) => setStatusRemark(e.target.value)} />
+              </div>
+            </Card>
+
+          </div>
+        </div>
+        <Modal.Footer>
+          <Button color="info" onClick={submitStatusUpdate} disabled={isSubmittingStatus || isLoadingStatusLead} className="flex items-center gap-2">
+            {isSubmittingStatus ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            ) : (
+              <Icon icon="solar:check-circle-line-duotone" className="w-4 h-4" />
+            )}
+            Update Status
+          </Button>
+          <Button color="gray" onClick={() => setIsStatusModalOpen(false)}>Cancel</Button>
         </Modal.Footer>
       </Modal>
     </div>

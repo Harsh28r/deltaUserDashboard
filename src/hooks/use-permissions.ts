@@ -13,21 +13,37 @@ export const useLeadPermissions = () => {
       canReadLeads: true,
       canUpdateLeads: true,
       canDeleteLeads: true,
+      canUpdateLeadStatus: true,
       isLoading: false
     };
   }
   
   // Check individual permissions
-  const canCreateLeads = userPermissions?.includes('lead:create') || false;
-  const canReadLeads = userPermissions?.includes('lead:read') || userPermissions?.includes('lead:read_all') || false;
-  const canUpdateLeads = userPermissions?.includes('lead:update') || userPermissions?.includes('lead:bulk-update') || false;
-  const canDeleteLeads = userPermissions?.includes('lead:delete') || userPermissions?.includes('lead:bulk-delete') || false;
-  
+  const canCreateLeads = userPermissions?.includes('lead:create')
+    || userPermissions?.includes('leads:create')
+    || false;
+  const canReadLeads = userPermissions?.includes('lead:read')
+    || userPermissions?.includes('lead:read_all')
+    || userPermissions?.includes('leads:read')
+    || userPermissions?.includes('leads:read_all')
+    || false;
+  const canUpdateLeads = userPermissions?.includes('lead:update')
+    || userPermissions?.includes('lead:bulk-update')
+    || userPermissions?.includes('leads:update')
+    || false;
+  const canDeleteLeads = userPermissions?.includes('lead:delete')
+    || userPermissions?.includes('lead:bulk-delete')
+    || userPermissions?.includes('leads:delete')
+    || false;
+  const canUpdateLeadStatus = userPermissions?.includes('lead:update:status')
+    || userPermissions?.includes('leads:status:update')
+    || false;
   return {
     canCreateLeads,
     canReadLeads,
     canUpdateLeads,
     canDeleteLeads,
+    canUpdateLeadStatus,
     isLoading: false
   };
 };

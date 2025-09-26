@@ -5,6 +5,8 @@ export const PERMISSIONS = {
   LEAD_READ: 'lead:read',
   LEAD_READ_ALL: 'lead:read_all',
   LEAD_UPDATE: 'lead:update',
+  LEAD_UPDATE_STATUS: 'lead:update:status',
+  LEADS_STATUS_UPDATE: 'leads:status:update',
   LEAD_DELETE: 'lead:delete',
   LEAD_BULK_CREATE: 'lead:bulk-create',
   LEAD_BULK_UPDATE: 'lead:bulk-update',

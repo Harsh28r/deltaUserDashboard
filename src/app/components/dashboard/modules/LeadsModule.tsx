@@ -354,40 +354,88 @@ const LeadsModule = () => {
       setIsSubmitting(true);
       
       if (editingLead) {
-        // Update existing lead
-        const response = await fetch(API_ENDPOINTS.UPDATE_LEAD(editingLead._id), {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            projectId: formData.projectId,
-            leadSource: formData.source,
-            currentStatus: formData.status,
+        // If status changed, use status update endpoint; else, regular update
+        const originalStatusId = editingLead.currentStatus?._id || '';
+        const statusChanged = formData.status && formData.status !== originalStatusId;
+
+        if (statusChanged) {
+          const statusUpdateBody: any = {
+            newStatus: formData.status,
+            newData: {
+              "First Name": editingLead.customData?.["First Name"] || editingLead.name || '',
+              "Email": editingLead.customData?.["Email"] || editingLead.email || '',
+              "Phone": editingLead.customData?.["Phone"] || editingLead.phone || '',
+              "Notes": editingLead.customData?.["Notes"] || editingLead.notes || '',
+              "Lead Priority": editingLead.customData?.["Lead Priority"] || '',
+              "Property Type": editingLead.customData?.["Property Type"] || '',
+              "Configuration": editingLead.customData?.["Configuration"] || '',
+              "Funding Mode": editingLead.customData?.["Funding Mode"] || '',
+              "Gender": editingLead.customData?.["Gender"] || '',
+              "Budget": editingLead.customData?.["Budget"] || '',
+              ...dynamicFields,
+            }
+          };
+
+          const response = await fetch(`${API_ENDPOINTS.LEAD_BY_ID(editingLead._id)}/status/`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(statusUpdateBody),
+          });
+
+          if (response.ok) {
+            setAlertMessage({ type: 'success', message: 'Lead status updated successfully!' });
+            setTimeout(() => fetchLeads(), 500);
+          } else {
+            let errorMessage = 'Failed to update lead status';
+            try {
+              const errorData = await response.json();
+              errorMessage = errorData.message || errorMessage;
+            } catch {
+              errorMessage = `Status update failed: ${response.status} ${response.statusText}`;
+            }
+            setAlertMessage({ type: 'error', message: errorMessage });
+          }
+        } else {
+          const updateBody: any = {
             customData: {
               "First Name": formData.name.split(' ')[0] || formData.name,
               "Last Name": formData.name.split(' ').slice(1).join(' ') || '',
               "Email": formData.email,
               "Phone": formData.phone,
               "Notes": formData.notes
-            },
-            user: formData.userId
-          }),
-        });
-
-        if (response.ok) {
-          setAlertMessage({ type: 'success', message: 'Lead updated successfully!' });
-          setTimeout(() => fetchLeads(), 2000);
-        } else {
-          let errorMessage = 'Failed to update lead';
-          try {
-            const errorData = await response.json();
-            errorMessage = errorData.message || errorMessage;
-          } catch (parseError) {
-            errorMessage = `Update failed: ${response.status} ${response.statusText}`;
+            }
+          };
+          // Only include projectId if changed
+          // editingLead in this module doesn't have a typed project field; compare against transformed id if available
+          const existingProjectId = (editingLead as any)?.project?._id || (editingLead as any)?.projectId || '';
+          if (formData.projectId && formData.projectId !== existingProjectId) {
+            updateBody.projectId = formData.projectId;
           }
-          setAlertMessage({ type: 'error', message: errorMessage });
+          const response = await fetch(API_ENDPOINTS.UPDATE_LEAD(editingLead._id), {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(updateBody),
+          });
+
+          if (response.ok) {
+            setAlertMessage({ type: 'success', message: 'Lead updated successfully!' });
+            setTimeout(() => fetchLeads(), 500);
+          } else {
+            let errorMessage = 'Failed to update lead';
+            try {
+              const errorData = await response.json();
+              errorMessage = errorData.message || errorMessage;
+            } catch {
+              errorMessage = `Update failed: ${response.status} ${response.statusText}`;
+            }
+            setAlertMessage({ type: 'error', message: errorMessage });
+          }
         }
       } else {
         // Create new lead

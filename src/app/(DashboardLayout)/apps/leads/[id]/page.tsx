@@ -2,12 +2,13 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import { Button, Card, Badge, Alert } from "flowbite-react";
+import { Button, Card, Badge, Alert, Modal, Label, Select, TextInput, Textarea } from "flowbite-react";
+import { useLeadPermissions } from "@/hooks/use-permissions";
 import { Icon } from "@iconify/react";
 import { useAuth } from "@/app/context/AuthContext";
 import { API_BASE_URL } from "@/lib/config";
 import { useParams, useRouter } from "next/navigation";
-import { LeadFormData, StatusFormData, AlertMessage } from "../types";
+import { LeadFormData, StatusFormData, AlertMessage, FormField } from "../types";
 import { useLeadDetails } from "../hooks/useLeadDetails";
 import { useLeadData } from "../hooks/useLeadData";
 import LeadOverview from "../components/LeadOverview";
@@ -25,11 +26,14 @@ const LeadDetailPage = () => {
   // Custom hooks for data fetching
   const { lead, activities, isLoading, alertMessage, setAlertMessage, refreshLead } = useLeadDetails(leadId);
   const { leadStatuses, leadSources, projects, users, channelPartners, cpSourcingOptions } = useLeadData();
+  const { canUpdateLeadStatus } = useLeadPermissions();
 
   // Modal states
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedStatusId, setSelectedStatusId] = useState<string>("");
+  const [statusDynamicFields, setStatusDynamicFields] = useState<Record<string, any>>({});
 
   // Form data
   const [statusFormData, setStatusFormData] = useState<StatusFormData>({
@@ -45,15 +49,23 @@ const LeadDetailPage = () => {
     setIsEditModalOpen(false);
   }, []);
 
+  const getFieldsForStatus = (statusId: string) => {
+    const st = leadStatuses.find(s => s._id === statusId) as any;
+    return (st?.formFields || []) as FormField[];
+  };
+
   const handleStatusChange = useCallback(() => {
     if (lead) {
-      setStatusFormData({
-        newStatus: lead.currentStatus?._id || '',
-        statusRemark: ''
-      });
+      const currentId = lead.currentStatus?._id || '';
+      setStatusFormData({ newStatus: currentId, statusRemark: '' });
+      setSelectedStatusId(currentId);
+      const fields = getFieldsForStatus(currentId);
+      const initialValues: Record<string, any> = {};
+      fields.forEach((f) => { initialValues[f.name] = lead.customData?.[f.name] || ''; });
+      setStatusDynamicFields(initialValues);
     }
     setIsStatusModalOpen(true);
-  }, [lead]);
+  }, [lead, leadStatuses]);
 
   const handleCloseStatusModal = useCallback(() => {
     setIsStatusModalOpen(false);
@@ -127,7 +139,7 @@ const LeadDetailPage = () => {
   }, [lead, token, refreshLead, setAlertMessage]);
 
   const handleStatusUpdate = useCallback(async () => {
-    if (!lead || !statusFormData.newStatus || !token) return;
+    if (!lead || !selectedStatusId || !token) return;
 
     try {
       setIsSubmitting(true);
@@ -139,7 +151,7 @@ const LeadDetailPage = () => {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          newStatus: statusFormData.newStatus,
+          newStatus: selectedStatusId,
           newData: {
             "First Name": lead.customData?.["First Name"] || '',
             "Email": lead.customData?.["Email"] || '',
@@ -151,14 +163,12 @@ const LeadDetailPage = () => {
             "Funding Mode": lead.customData?.["Funding Mode"] || '',
             "Gender": lead.customData?.["Gender"] || '',
             "Budget": lead.customData?.["Budget"] || '',
-            "Remark": statusFormData.statusRemark || 'Status updated'
-          },
-          ...Object.keys(lead.customData || {}).reduce((acc, key) => {
-            if (!["First Name", "Email", "Phone", "Notes", "Lead Priority", "Property Type", "Configuration", "Funding Mode", "Gender", "Budget", "Remark"].includes(key)) {
-              acc[key] = lead.customData?.[key];
-            }
-            return acc;
-          }, {} as any)
+            ...getFieldsForStatus(selectedStatusId).reduce((acc, f) => {
+              acc[f.name] = statusDynamicFields[f.name] ?? '';
+              return acc;
+            }, {} as Record<string, any>),
+            Remark: statusFormData.statusRemark || 'Status updated'
+          }
         }),
       });
 
@@ -273,14 +283,16 @@ const LeadDetailPage = () => {
             <Icon icon="solar:list-line-duotone" />
             All Leads
           </Button>
+          {canUpdateLeadStatus && (
           <Button
-            color="info"
-            onClick={handleEditLead}
+              color="blue"
+              onClick={handleStatusChange}
             className="flex items-center gap-2"
           >
-            <Icon icon="solar:pen-line-duotone" />
-            Edit Lead
+              <Icon icon="solar:check-circle-line-duotone" />
+              Change Status
           </Button>
+          )}
           <Button
             color="success"
             onClick={() => {/* Add call functionality */ }}
@@ -410,8 +422,160 @@ const LeadDetailPage = () => {
         isSubmitting={isSubmitting}
       />
 
-      {/* Status Update Modal - Simplified for now */}
-      {/* You can create a separate StatusUpdateModal component similar to EditLeadModal */}
+      {/* Status Update Modal */}
+      <Modal show={isStatusModalOpen} onClose={handleCloseStatusModal} size="6xl">
+        <Modal.Header>Change Lead Status</Modal.Header>
+        <form onSubmit={(e) => { e.preventDefault(); handleStatusUpdate(); }}>
+          <div className="p-2 max-h-[80vh] overflow-y-auto">
+            <div className="space-y-6">
+              <Card>
+                <div className="flex items-center mb-6">
+                  <div className="bg-blue-100 dark:bg-blue-900/20 p-2 rounded-lg mr-3">
+                    <Icon icon="solar:user-line-duotone" className="text-blue-600 dark:text-blue-400 text-xl" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Basic Information</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="modal_name" value="Name" />
+                    <TextInput id="modal_name" value={`${lead.customData?.["First Name"] || ''} ${lead.customData?.["Last Name"] || ''}`.trim()} disabled />
+                  </div>
+                  <div>
+                    <Label htmlFor="modal_email" value="Email" />
+                    <TextInput id="modal_email" value={lead.customData?.["Email"] || ''} disabled />
+                  </div>
+                  <div>
+                    <Label htmlFor="modal_phone" value="Phone" />
+                    <TextInput id="modal_phone" value={lead.customData?.["Phone"] || ''} disabled />
+                  </div>
+                </div>
+              </Card>
+
+              <Card>
+                <div className="flex items-center mb-6">
+                  <div className="bg-green-100 dark:bg-green-900/20 p-2 rounded-lg mr-3">
+                    <Icon icon="solar:chart-line-duotone" className="text-green-600 dark:text-green-400 text-xl" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Lead Details</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Change status and fill required fields</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="modal_status" value="Lead Status" />
+                    <Select id="modal_status" value={selectedStatusId} onChange={(e) => {
+                      const next = e.target.value;
+                      setSelectedStatusId(next);
+                      setStatusFormData(prev => ({ ...prev, newStatus: next }));
+                      const fields = getFieldsForStatus(next);
+                      const initVals: Record<string, any> = {};
+                      fields.forEach((f) => { initVals[f.name] = lead.customData?.[f.name] || ''; });
+                      setStatusDynamicFields(initVals);
+                    }}>
+                      <option value="">Select status</option>
+                      {leadStatuses.map((s) => (
+                        <option key={s._id} value={s._id}>{s.name}</option>
+                      ))}
+                    </Select>
+                  </div>
+                </div>
+              </Card>
+
+              {selectedStatusId && getFieldsForStatus(selectedStatusId).length > 0 && (
+                <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 border-blue-200 dark:border-blue-700">
+                  <div className="flex items-center mb-6">
+                    <div className="bg-blue-100 dark:bg-blue-900/20 p-2 rounded-lg mr-3">
+                      <Icon icon="solar:settings-line-duotone" className="text-blue-600 dark:text-blue-400 text-xl" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Additional Required Fields</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">for "{leadStatuses.find(s => s._id === selectedStatusId)?.name}" Status</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {getFieldsForStatus(selectedStatusId).map((field: FormField) => (
+                      <div key={field._id || field.name} className="space-y-2">
+                        <Label htmlFor={`statusField_${field._id || field.name}`} value={`${field.name}${field.required ? ' *' : ''}`} />
+                        {field.type === 'select' && field.options && field.options.length > 0 ? (
+                          <Select id={`statusField_${field._id || field.name}`} value={statusDynamicFields[field.name] || ''} onChange={(e) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} required={field.required}>
+                            <option value="">Select {field.name}</option>
+                            {field.options.map((option: any, index: number) => (
+                              <option key={index} value={(option as any).value || option as any}>{(option as any).label || option as any}</option>
+                            ))}
+                          </Select>
+                        ) : field.type === 'checkbox' && field.options && field.options.length > 0 ? (
+                          <div className="space-y-2">
+                            {field.options.map((option: any, index: number) => {
+                              const optionValue = (option as any).value || option as any;
+                              const currentValues = statusDynamicFields[field.name] || '';
+                              const isChecked = Array.isArray(currentValues) ? currentValues.includes(optionValue) : currentValues === optionValue;
+                              return (
+                                <div key={index} className="flex items-center">
+                                  <input type="checkbox" id={`${field._id || field.name}_${index}`} checked={isChecked} onChange={(e) => {
+                                    const current = statusDynamicFields[field.name] || '';
+                                    let newValues;
+                                    if (Array.isArray(current)) {
+                                      newValues = e.target.checked ? [...current, optionValue] : current.filter((v: string) => v !== optionValue);
+                                    } else {
+                                      newValues = e.target.checked ? [optionValue] : [];
+                                    }
+                                    setStatusDynamicFields(prev => ({ ...prev, [field.name]: newValues }));
+                                  }} className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" />
+                                  <label htmlFor={`${field._id || field.name}_${index}`} className="ml-2 text-sm text-gray-700 dark:text-gray-300">{(option as any).label || option as any}</label>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : field.type === 'textarea' ? (
+                          <Textarea id={`statusField_${field._id || field.name}`} value={statusDynamicFields[field.name] || ''} onChange={(e) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} rows={3} placeholder={`Enter ${field.name.toLowerCase()}`} required={field.required} />
+                        ) : field.type === 'number' ? (
+                          <TextInput id={`statusField_${field._id || field.name}`} type="number" value={statusDynamicFields[field.name] || ''} onChange={(e) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} placeholder={`Enter ${field.name.toLowerCase()}`} required={field.required} />
+                        ) : field.type === 'date' ? (
+                          <TextInput id={`statusField_${field._id || field.name}`} type="date" value={statusDynamicFields[field.name] || ''} onChange={(e) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} required={field.required} />
+                        ) : field.type === 'email' ? (
+                          <TextInput id={`statusField_${field._id || field.name}`} type="email" value={statusDynamicFields[field.name] || ''} onChange={(e) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} placeholder={`Enter ${field.name.toLowerCase()}`} required={field.required} />
+                        ) : field.type === 'tel' ? (
+                          <TextInput id={`statusField_${field._id || field.name}`} type="tel" value={statusDynamicFields[field.name] || ''} onChange={(e) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} placeholder={`Enter ${field.name.toLowerCase()}`} required={field.required} />
+                        ) : (
+                          <TextInput id={`statusField_${field._id || field.name}`} type="text" value={statusDynamicFields[field.name] || ''} onChange={(e) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} placeholder={`Enter ${field.name.toLowerCase()}`} required={field.required} />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              <Card>
+                <div className="flex items-center mb-6">
+                  <div className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg mr-3">
+                    <Icon icon="solar:notes-line-duotone" className="text-gray-600 dark:text-gray-400 text-xl" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Additional Notes</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Add any additional information about this status change</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="modal_notes" value="Remark" />
+                  <Textarea id="modal_notes" rows={3} placeholder="Enter remark for this status change" value={statusFormData.statusRemark} onChange={(e) => setStatusFormData(prev => ({ ...prev, statusRemark: e.target.value }))} />
+                </div>
+              </Card>
+            </div>
+          </div>
+          <Modal.Footer>
+            <Button color="info" type="submit" disabled={isSubmitting} className="flex items-center gap-2">
+              {isSubmitting ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              ) : (
+                <Icon icon="solar:check-circle-line-duotone" className="w-4 h-4" />
+              )}
+              Update Status
+            </Button>
+            <Button color="gray" onClick={handleCloseStatusModal}>Cancel</Button>
+          </Modal.Footer>
+        </form>
+      </Modal>
     </div>
   );
 };

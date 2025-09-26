@@ -16,6 +16,7 @@ const LeadOverview: React.FC<LeadOverviewProps> = ({
   channelPartners,
   cpSourcingOptions
 }) => {
+  const cpList = Array.isArray(cpSourcingOptions) ? cpSourcingOptions : [];
   // Function to get source name with channel partner info
   const getSourceName = (lead: Lead) => {
     const channelPartnerId = lead.customData?.["Channel Partner"];
@@ -26,7 +27,7 @@ const LeadOverview: React.FC<LeadOverviewProps> = ({
         
         const cpSourcingId = lead.customData?.["Channel Partner Sourcing"];
         if (cpSourcingId) {
-          const cpSourcing = cpSourcingOptions.find(cp => cp._id === cpSourcingId);
+          const cpSourcing = cpList.find(cp => cp._id === cpSourcingId);
           if (cpSourcing) {
             sourceName += ` (${cpSourcing.channelPartnerId.name} - ${cpSourcing.projectId.name})`;
           }
@@ -35,7 +36,7 @@ const LeadOverview: React.FC<LeadOverviewProps> = ({
       } else {
         const cpSourcingId = lead.customData?.["Channel Partner Sourcing"];
         if (cpSourcingId) {
-          const cpSourcing = cpSourcingOptions.find(cp => cp._id === cpSourcingId);
+          const cpSourcing = cpList.find(cp => cp._id === cpSourcingId);
           if (cpSourcing) {
             return `Channel Partner: ${cpSourcing.channelPartnerId.name}`;
           }
@@ -105,13 +106,13 @@ const LeadOverview: React.FC<LeadOverviewProps> = ({
                 <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   {(() => {
                     const cpSourcingId = lead.customData?.["Channel Partner Sourcing"];
-                    const cpSourcing = cpSourcingOptions.find(cp => cp._id === cpSourcingId);
+                    const cpSourcing = cpList.find(cp => cp._id === cpSourcingId);
                     return cpSourcing ? `${cpSourcing.channelPartnerId.name} - ${cpSourcing.projectId.name}` : 'Loading...';
                   })()}
                 </p>
                 {(() => {
                   const cpSourcingId = lead.customData?.["Channel Partner Sourcing"];
-                  const cpSourcing = cpSourcingOptions.find(cp => cp._id === cpSourcingId);
+                  const cpSourcing = cpList.find(cp => cp._id === cpSourcingId);
                   return cpSourcing ? (
                     <div className="mt-2 text-xs text-gray-600 dark:text-gray-300">
                       <p>Visits: {cpSourcing.sourcingHistory.length}</p>
