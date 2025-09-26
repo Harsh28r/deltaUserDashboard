@@ -28,9 +28,9 @@ interface Lead {
 
 const LeadsPage = () => {
   const router = useRouter();
-  const { token, user, userPermissions, projectAccess } = useAuth();
+  const { token, user, userPermissions } = useAuth();
   const { canUpdateLeadStatus, canCreateLeads } = useLeadPermissions();
-  const canCreateLead = canCreateLeads || (projectAccess?.assignedProjects?.length || 0) > 0 || projectAccess?.canAccessAll;
+  const canCreateLead = canCreateLeads;
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
