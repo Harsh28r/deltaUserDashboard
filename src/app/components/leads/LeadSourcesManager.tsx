@@ -16,7 +16,22 @@ interface LeadSource {
 }
 
 const LeadSourcesManager = () => {
-  const { token } = useAuth();
+  const { token, user, projectAccess } = useAuth();
+  
+  // Check permissions for lead source management
+  const isSuperAdmin = user?.role === 'superadmin' || user?.role === 'admin';
+  const hasLeadSourcePermission = user?.permissions?.allowed?.includes('lead-source:write') || 
+                                  user?.permissions?.allowed?.includes('lead-source:manage');
+  const canManageLeadSources = isSuperAdmin || (projectAccess?.canAccessAll === true) || hasLeadSourcePermission;
+  
+  // Debug logging
+  console.log('LeadSourcesManager - Debug:', {
+    user: user,
+    userRole: user?.role,
+    isSuperAdmin,
+    projectAccess,
+    canManageLeadSources
+  });
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -215,12 +230,20 @@ const LeadSourcesManager = () => {
           <p className="text-sm lg:text-base text-gray-600 dark:text-gray-400">
             Manage your lead sources and track where your leads come from
           </p>
+          {/* Debug info - remove in production */}
+          <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs">
+            <strong>Debug:</strong> canManageLeadSources = {(canManageLeadSources ?? false).toString()}, 
+            isSuperAdmin = {isSuperAdmin.toString()}, 
+            userRole = {user?.role || 'undefined'}
+          </div>
         </div>
         <div className="flex gap-2 w-full lg:w-auto lg:ml-auto">
-          <Button onClick={handleAddNew} color="primary" className="w-full lg:w-auto">
-            <Icon icon="solar:add-circle-line-duotone" className="mr-2" />
-            Add New Source
-          </Button>
+          {canManageLeadSources && (
+            <Button onClick={handleAddNew} color="primary" className="w-full lg:w-auto">
+              <Icon icon="solar:add-circle-line-duotone" className="mr-2" />
+              Add New Source
+            </Button>
+          )}
         </div>
       </div>
 
@@ -294,24 +317,28 @@ const LeadSourcesManager = () => {
                     </Table.Cell>
                     <Table.Cell>
                       <div className="flex flex-col sm:flex-row gap-2">
-                        <Button
-                          size="xs"
-                          color="info"
-                          onClick={() => handleEdit(source)}
-                          className="text-xs"
-                        >
-                          <Icon icon="solar:pen-line-duotone" className="mr-1" />
-                          <span className="hidden sm:inline">Edit</span>
-                        </Button>
-                        <Button
-                          size="xs"
-                          color="failure"
-                          onClick={() => handleDelete(source._id)}
-                          className="text-xs"
-                        >
-                          <Icon icon="solar:trash-bin-trash-line-duotone" className="mr-1" />
-                          <span className="hidden sm:inline">Delete</span>
-                        </Button>
+                        {canManageLeadSources && (
+                          <>
+                            <Button
+                              size="xs"
+                              color="info"
+                              onClick={() => handleEdit(source)}
+                              className="text-xs"
+                            >
+                              <Icon icon="solar:pen-line-duotone" className="mr-1" />
+                              <span className="hidden sm:inline">Edit</span>
+                            </Button>
+                            <Button
+                              size="xs"
+                              color="failure"
+                              onClick={() => handleDelete(source._id)}
+                              className="text-xs"
+                            >
+                              <Icon icon="solar:trash-bin-trash-line-duotone" className="mr-1" />
+                              <span className="hidden sm:inline">Delete</span>
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </Table.Cell>
                   </Table.Row>

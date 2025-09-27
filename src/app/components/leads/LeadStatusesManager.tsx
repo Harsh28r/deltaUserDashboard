@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Button, Modal, Table, Badge, Alert } from "flowbite-react";
 import { Icon } from "@iconify/react";
 import { ApiService } from "@/app/utils/api/endpoints";
+import { useAuth } from "@/app/context/AuthContext";
 
 interface LeadStatus {
   id: string;
@@ -16,6 +17,23 @@ interface LeadStatus {
 }
 
 const LeadStatusesManager = () => {
+  const { user, projectAccess } = useAuth();
+  
+  // Check permissions for lead status management
+  const isSuperAdmin = user?.role === 'superadmin' || user?.role === 'admin';
+  const hasLeadStatusPermission = user?.permissions?.allowed?.includes('lead-status:write') || 
+                                 user?.permissions?.allowed?.includes('lead-status:manage');
+  const canManageLeadStatuses = isSuperAdmin || (projectAccess?.canAccessAll === true) || hasLeadStatusPermission;
+  
+  // Debug logging
+  console.log('LeadStatusesManager - Debug:', {
+    user: user,
+    userRole: user?.role,
+    isSuperAdmin,
+    projectAccess,
+    canManageLeadStatuses
+  });
+  
   const [leadStatuses, setLeadStatuses] = useState<LeadStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -125,11 +143,19 @@ const LeadStatusesManager = () => {
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Lead Statuses</h2>
           <p className="text-gray-600 dark:text-gray-400">Manage your lead statuses and pipeline stages</p>
+          {/* Debug info - remove in production */}
+          <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs">
+            <strong>Debug:</strong> canManageLeadStatuses = {(canManageLeadStatuses ?? false).toString()}, 
+            isSuperAdmin = {isSuperAdmin.toString()}, 
+            userRole = {user?.role || 'undefined'}
+          </div>
         </div>
-        <Button onClick={openModal} className="bg-blue-600 hover:bg-blue-700">
-          <Icon icon="solar:add-circle-line-duotone" className="mr-2" height={20} />
-          Add Lead Status
-        </Button>
+        {canManageLeadStatuses && (
+          <Button onClick={openModal} className="bg-blue-600 hover:bg-blue-700">
+            <Icon icon="solar:add-circle-line-duotone" className="mr-2" height={20} />
+            Add Lead Status
+          </Button>
+        )}
       </div>
 
       {/* Error Alert */}
@@ -180,20 +206,24 @@ const LeadStatusesManager = () => {
                 </Table.Cell>
                 <Table.Cell>
                   <div className="flex space-x-2">
-                    <Button
-                      size="sm"
-                      color="blue"
-                      onClick={() => handleEdit(status)}
-                    >
-                      <Icon icon="solar:pen-line-duotone" height={16} />
-                    </Button>
-                    <Button
-                      size="sm"
-                      color="failure"
-                      onClick={() => handleDelete(status.id)}
-                    >
-                      <Icon icon="solar:trash-bin-minimalistic-line-duotone" height={16} />
-                    </Button>
+                    {canManageLeadStatuses && (
+                      <>
+                        <Button
+                          size="sm"
+                          color="blue"
+                          onClick={() => handleEdit(status)}
+                        >
+                          <Icon icon="solar:pen-line-duotone" height={16} />
+                        </Button>
+                        <Button
+                          size="sm"
+                          color="failure"
+                          onClick={() => handleDelete(status.id)}
+                        >
+                          <Icon icon="solar:trash-bin-minimalistic-line-duotone" height={16} />
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </Table.Cell>
                              </Table.Row>
