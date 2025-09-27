@@ -100,7 +100,26 @@ const AddLeadPage = () => {
 
   const handleStatusChange = (value: string) => {
     setFormData(prev => ({ ...prev, status: value }));
-    setDynamicFields({});
+    // Preserve existing values for fields that still apply to the new status
+    const required = getRequiredFieldsForStatus(value);
+    const allowedNames = new Set(required.map((f: any) => f.name).filter(Boolean));
+    setDynamicFields(prev => {
+      const merged: Record<string, any> = {};
+      required.forEach((field: any) => {
+        const name = field?.name;
+        if (!name) return;
+        // Keep existing value if present, otherwise initialize sensibly
+        if (Object.prototype.hasOwnProperty.call(prev, name)) {
+          merged[name] = prev[name];
+        } else if (field.type === 'checkbox') {
+          merged[name] = [];
+        } else {
+          merged[name] = '';
+        }
+      });
+      // Drop values for fields not in the new status requirements
+      return merged;
+    });
   };
 
   const handleChannelPartnerChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {

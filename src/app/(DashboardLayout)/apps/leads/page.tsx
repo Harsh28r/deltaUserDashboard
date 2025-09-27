@@ -46,6 +46,12 @@ const LeadsPage = () => {
   const [selectedLeadFull, setSelectedLeadFull] = useState<any>(null);
   const [isLoadingStatusLead, setIsLoadingStatusLead] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string>("");
+  const [modalLeadPriority, setModalLeadPriority] = useState<string>("");
+  const [modalPropertyType, setModalPropertyType] = useState<string>("");
+  const [modalConfiguration, setModalConfiguration] = useState<string>("");
+  const [modalFundingMode, setModalFundingMode] = useState<string>("");
+  const [modalGender, setModalGender] = useState<string>("");
+  const [modalBudget, setModalBudget] = useState<string>("");
 
   // Fetch leads
   useEffect(() => {
@@ -134,22 +140,44 @@ const LeadsPage = () => {
     return (st?.formFields || []) as FormField[];
   };
 
-  const openStatusModal = (leadId: string) => {
-    const leadObj = leads.find(l => l._id === leadId);
-    if (!leadObj) {
-      setError('Failed to load lead from list.');
-      return;
+  const openStatusModal = async (leadId: string) => {
+    try {
+      setIsLoadingStatusLead(true);
+      setSelectedLeadId(leadId);
+      // Fetch full lead details to ensure customData and currentStatus are available
+      const res = await fetch(API_ENDPOINTS.LEAD_BY_ID(leadId), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        setError(`Failed to load lead details: ${res.status}`);
+        return;
+      }
+      const data = await res.json();
+      const fullLead = (data.lead || data) as any;
+      setSelectedLeadFull(fullLead);
+      setIsStatusModalOpen(true);
+
+      const currentId = fullLead?.currentStatus?._id || '';
+      setSelectedStatusId(currentId);
+
+      const fields = getFieldsForStatus(currentId);
+      const initVals: Record<string, any> = {};
+      fields.forEach((f) => { initVals[f.name] = fullLead?.customData?.[f.name] || ''; });
+      setStatusDynamicFields(initVals);
+      setStatusRemark('');
+
+      const cd = fullLead?.customData || {};
+      setModalLeadPriority(cd["Lead Priority"] || "");
+      setModalPropertyType(cd["Property Type"] || "");
+      setModalConfiguration(cd["Configuration"] || "");
+      setModalFundingMode(cd["Funding Mode"] || "");
+      setModalGender(cd["Gender"] || "");
+      setModalBudget(cd["Budget"] || "");
+    } catch (e) {
+      setError('Network error: Failed to load lead details');
+    } finally {
+      setIsLoadingStatusLead(false);
     }
-    setSelectedLeadId(leadId);
-    setSelectedLeadFull(leadObj);
-    setIsStatusModalOpen(true);
-    const currentId = (leadObj as any)?.currentStatus?._id || '';
-    setSelectedStatusId(currentId);
-    const fields = getFieldsForStatus(currentId);
-    const initVals: Record<string, any> = {};
-    fields.forEach((f) => { initVals[f.name] = (leadObj as any)?.customData?.[f.name] || ''; });
-    setStatusDynamicFields(initVals);
-    setStatusRemark("");
   };
 
   const submitStatusUpdate = async () => {
@@ -176,6 +204,18 @@ const LeadsPage = () => {
             newStatus: selectedStatusId,
             // Send only status-specific fields to minimize hierarchy validation
             newData: {
+              // Basic info to ensure it is tracked in status history
+              "First Name": (selectedLeadFull as any)?.customData?.["First Name"] || (selectedLeadFull as any)?.name || '',
+              "Last Name": (selectedLeadFull as any)?.customData?.["Last Name"] || '',
+              "Email": (selectedLeadFull as any)?.customData?.["Email"] || (selectedLeadFull as any)?.email || '',
+              "Phone": (selectedLeadFull as any)?.customData?.["Phone"] || (selectedLeadFull as any)?.phone || '',
+              // Additional Lead Information tracked in status change
+              "Lead Priority": modalLeadPriority,
+              "Property Type": modalPropertyType,
+              "Configuration": modalConfiguration,
+              "Funding Mode": modalFundingMode,
+              "Gender": modalGender,
+              "Budget": modalBudget,
               ...getFieldsForStatus(selectedStatusId).reduce((acc, f) => {
                 acc[f.name] = statusDynamicFields[f.name] ?? '';
                 return acc;
@@ -385,6 +425,8 @@ const LeadsPage = () => {
         )}
       </Card>
 
+          
+
       {/* Delete Confirmation Modal */}
       <Modal show={deleteModalOpen} onClose={() => setDeleteModalOpen(false)}>
         <Modal.Header>Delete Lead</Modal.Header>
@@ -444,6 +486,7 @@ const LeadsPage = () => {
                 </div>
               </div>
             </Card>
+
 
             <Card>
               <div className="flex items-center mb-6">
@@ -540,6 +583,8 @@ const LeadsPage = () => {
                 </div>
               </Card>
             )}
+            
+          
 
             <Card>
               <div className="flex items-center mb-6">
@@ -555,6 +600,50 @@ const LeadsPage = () => {
                 <Label htmlFor="statusRemark" value="Remark" />
                 <Textarea id="statusRemark" rows={3} placeholder="Enter remark for this status change" value={statusRemark} onChange={(e) => setStatusRemark(e.target.value)} />
               </div>
+            </Card>
+
+              {/* Removed Additional Lead Information selects from status modal */}
+             <Card>
+            <div className="flex items-center mb-6">
+              <div className="bg-indigo-100 dark:bg-indigo-900/20 p-2 rounded-lg mr-3">
+                <Icon icon="solar:settings-line-duotone" className="text-indigo-600 dark:text-indigo-400 text-xl" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Additional Lead Information</h3>
+            </div>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="modal_leadPriority" value="Lead Priority" />
+                  <TextInput id="modal_leadPriority" value={selectedLeadFull?.customData?.["Lead Priority"] || ''} disabled className="w-full" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="modal_propertyType" value="Property Type" />
+                  <TextInput id="modal_propertyType" value={selectedLeadFull?.customData?.["Property Type"] || ''} disabled className="w-full" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="modal_configuration" value="Configuration" />
+                  <TextInput id="modal_configuration" value={selectedLeadFull?.customData?.["Configuration"] || ''} disabled className="w-full" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="modal_fundingMode" value="Funding Mode" />
+                  <TextInput id="modal_fundingMode" value={selectedLeadFull?.customData?.["Funding Mode"] || ''} disabled className="w-full" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="modal_gender" value="Gender" />
+                  <TextInput id="modal_gender" value={selectedLeadFull?.customData?.["Gender"] || ''} disabled className="w-full" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="modal_budget" value="Budget" />
+                  <TextInput id="modal_budget" value={selectedLeadFull?.customData?.["Budget"] || ''} disabled className="w-full" />
+                </div>
+              </div>
+            </div>
             </Card>
 
           </div>

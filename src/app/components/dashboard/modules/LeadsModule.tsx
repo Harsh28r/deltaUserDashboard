@@ -6,6 +6,21 @@ import { useAuth } from "@/app/context/AuthContext";
 import { API_ENDPOINTS } from "@/lib/config";
 import { useSearchParams, useRouter } from "next/navigation";
 
+// Date formatting helpers to mirror reference form behavior
+const formatDateToDDMMYYYY = (date: Date): string => {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = String(date.getFullYear()).slice(-2);
+  return `${day}/${month}/${year}`;
+};
+
+const formatDateToYYYYMMDD = (date: Date): string => {
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 interface LeadSource {
   _id: string;
   name: string;
@@ -102,6 +117,7 @@ const LeadsModule = () => {
     notes: "",
     projectId: "", // Will be empty until user selects
     userId: "",
+    remark: "",
     leadPriority: "",
     propertyType: "",
     configuration: "",
@@ -363,15 +379,16 @@ const LeadsModule = () => {
             newStatus: formData.status,
             newData: {
               "First Name": editingLead.customData?.["First Name"] || editingLead.name || '',
-              "Email": editingLead.customData?.["Email"] || editingLead.email || '',
-              "Phone": editingLead.customData?.["Phone"] || editingLead.phone || '',
-              "Notes": editingLead.customData?.["Notes"] || editingLead.notes || '',
-              "Lead Priority": editingLead.customData?.["Lead Priority"] || '',
-              "Property Type": editingLead.customData?.["Property Type"] || '',
-              "Configuration": editingLead.customData?.["Configuration"] || '',
-              "Funding Mode": editingLead.customData?.["Funding Mode"] || '',
-              "Gender": editingLead.customData?.["Gender"] || '',
-              "Budget": editingLead.customData?.["Budget"] || '',
+              "Email": formData.email || editingLead.customData?.["Email"] || editingLead.email || '',
+              "Phone": formData.phone || editingLead.customData?.["Phone"] || editingLead.phone || '',
+              "Notes": formData.notes || editingLead.customData?.["Notes"] || editingLead.notes || '',
+              "Lead Priority": formData.leadPriority,
+              "Property Type": formData.propertyType,
+              "Configuration": formData.configuration,
+              "Funding Mode": formData.fundingMode,
+              "Gender": formData.gender,
+              "Budget": formData.budget,
+              "Remark": formData.remark || 'Status updated',
               ...dynamicFields,
             }
           };
@@ -406,6 +423,7 @@ const LeadsModule = () => {
               "Email": formData.email,
               "Phone": formData.phone,
               "Notes": formData.notes
+              
             }
           };
           // Only include projectId if changed
@@ -456,7 +474,8 @@ const LeadsModule = () => {
             "Gender": formData.gender,
             "Budget": formData.budget,
             ...(formData.channelPartner ? { "Channel Partner": formData.channelPartner } : {}),
-            ...(formData.cpSourcingId ? { "Channel Partner Sourcing": formData.cpSourcingId } : {})
+            ...(formData.cpSourcingId ? { "Channel Partner Sourcing": formData.cpSourcingId } : {}),
+            ...dynamicFields
           },
           user: formData.userId
         };
@@ -542,12 +561,13 @@ const LeadsModule = () => {
       notes: lead.notes || '',
       projectId: formData.projectId || '',
       userId: formData.userId,
-      leadPriority: lead.customData?.["Lead Priority"] || '',
-      propertyType: lead.customData?.["Property Type"] || '',
-      configuration: lead.customData?.["Configuration"] || '',
-      fundingMode: lead.customData?.["Funding Mode"] || '',
-      gender: lead.customData?.["Gender"] || '',
-      budget: lead.customData?.["Budget"] || '',
+      remark: "",
+      leadPriority: lead.customData?.["Lead Priority"] || 'Hot',
+      propertyType: lead.customData?.["Property Type"] || 'Residential',
+      configuration: lead.customData?.["Configuration"] || '2+2 BHK',
+      fundingMode: lead.customData?.["Funding Mode"] || 'Sale Out Property',
+      gender: lead.customData?.["Gender"] || 'Male',
+      budget: lead.customData?.["Budget"] || 'Not Specified',
       channelPartner: lead.customData?.["Channel Partner"] || '',
       cpSourcingId: lead.customData?.["Channel Partner Sourcing"] || ''
     });
@@ -561,6 +581,7 @@ const LeadsModule = () => {
       name: "",
       email: "",
       phone: "",
+      remark: "",
       source: "",
       status: "",
       notes: "",
@@ -588,6 +609,7 @@ const LeadsModule = () => {
       notes: "",
       projectId: projects.length > 0 ? projects[0]._id : "", // Use default project
       userId: formData.userId,
+      remark: "",
       leadPriority: "",
       propertyType: "",
       configuration: "",
@@ -819,7 +841,27 @@ const LeadsModule = () => {
 
   const handleStatusChange = (value: string) => {
     setFormData(prev => ({ ...prev, status: value }));
-    setDynamicFields({});
+    const required = getRequiredFieldsForStatus(value);
+    const selectedStatus = leadStatuses.find(s => s._id === value) as any;
+    setDynamicFields(prev => {
+      const merged: Record<string, any> = {};
+      required.forEach((field: any) => {
+        const name = field?.name;
+        if (!name) return;
+        if (field.type === 'date' && selectedStatus?.is_final_status) {
+          merged[name] = formatDateToYYYYMMDD(new Date());
+          return;
+        }
+        if (Object.prototype.hasOwnProperty.call(prev, name)) {
+          merged[name] = prev[name];
+        } else if (field.type === 'checkbox') {
+          merged[name] = [];
+        } else {
+          merged[name] = '';
+        }
+      });
+      return merged;
+    });
   };
 
   const getRequiredFieldsForStatus = (statusId: string) => {
@@ -1173,7 +1215,53 @@ const LeadsModule = () => {
                   </div>
                 </div>
               </div>
+              
+              {/* Channel Partner Fields - Show when Channel Partner source */}
+              {(formData.source === 'channel-partner' || leadSources.some(source => source._id === formData.source && source.name?.toLowerCase?.() === 'channel partner')) && (
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mt-6">
+                  <div className="flex items-center mb-6">
+                    <div className="bg-orange-100 dark:bg-orange-900/20 p-2 rounded-lg mr-3">
+                      <Icon icon="solar:users-group-two-rounded-line-duotone" className="text-orange-600 dark:text-orange-400 text-xl" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Channel Partner Selection</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Select channel partner and CP sourcing user</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="channelPartner" value="Select Channel Partner *" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
+                      <Select id="channelPartner" value={formData.channelPartner} onChange={async (e) => { const cpId = e.target.value; setFormData(prev => ({ ...prev, channelPartner: cpId, cpSourcingId: '' })); setCPSourcingOptions([]); if (cpId && formData.projectId) { await fetchCPSourcingUsers(formData.projectId, cpId); } }} required className="w-full">
+                        <option value="">Select a channel partner</option>
+                        {channelPartners.map(partner => (<option key={partner._id} value={partner._id}>{partner.name}{partner.firmName ? ` - ${partner.firmName}` : ''}{partner.phone ? ` - ${partner.phone}` : ''}</option>))}
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cpSourcingId" value="CP Sourcing User" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
+                          <Select id="cpSourcingId" value={formData.cpSourcingId} onChange={(e) => setFormData({ ...formData, cpSourcingId: e.target.value })} className="w-full" disabled={isLoadingCPSourcing || !formData.channelPartner || !formData.projectId}>
+                        <option value="">{!formData.channelPartner || !formData.projectId ? 'Select channel partner and project first' : (isLoadingCPSourcing ? 'Loading users...' : 'Select CP sourcing user')}</option>
+                        {cpSourcingOptions.map((u: any) => (<option key={u._id} value={u._id}>{u.name}{u.email ? ` (${u.email})` : ''}</option>))}
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              )}
 
+              {/* Remark for status change */}
+              {editingLead && (
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mt-6">
+                  <div className="flex items-center mb-4">
+                    <div className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg mr-3">
+                      <Icon icon="solar:chat-square-line-duotone" className="text-gray-600 dark:text-gray-400 text-xl" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Remark</h3>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="remark" value="Remark" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
+                    <Textarea id="remark" rows={3} placeholder="Enter remark for this status change" value={formData.remark} onChange={(e) => setFormData(prev => ({ ...prev, remark: e.target.value }))} />
+                  </div>
+                </div>
+              )}
               <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center mb-6">
                   <div className="bg-purple-100 dark:bg-purple-900/20 p-2 rounded-lg mr-3">
@@ -1215,7 +1303,7 @@ const LeadsModule = () => {
                   </div>
                   <div>
                     <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Lead Details</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Status is automatically set to default and locked</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{editingLead ? 'Change the lead status below' : 'Status is automatically set to default and locked'}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1232,13 +1320,67 @@ const LeadsModule = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="status" value="Lead Status *" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
-                    <Select id="status" value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} required className="w-full" disabled={!editingLead}>
+                    <Select id="status" value={formData.status} onChange={(e) => handleStatusChange(e.target.value)} required className="w-full" disabled={!editingLead}>
                       <option value="">Select lead status</option>
                       {leadStatuses.map(status => (<option key={status._id} value={status._id}>{status.name}</option>))}
                     </Select>
                     <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"><Icon icon="solar:lock-line-duotone" className="w-3 h-3" />Status is automatically set to default and locked</p>
                   </div>
                 </div>
+                {/* Dynamic Fields by Selected Status */}
+                {formData.status && getRequiredFieldsForStatus(formData.status).length > 0 && (
+                  <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {getRequiredFieldsForStatus(formData.status)
+                      .filter((field: any) => field.name && field.name.trim() !== '')
+                      .map((field: any) => (
+                        <div key={field.name} className="space-y-2">
+                          <Label htmlFor={field.name} value={`${field.name} ${field.required ? '*' : ''}`} className="text-sm font-medium text-gray-700 dark:text-gray-300" />
+                          {field.type === 'select' && field.options && field.options.length > 0 ? (
+                            <Select id={field.name} value={dynamicFields[field.name] || ''} onChange={(e) => setDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} required={field.required} className="w-full">
+                              <option value="">Select {field.name}</option>
+                              {field.options.map((option: any, index: number) => (<option key={index} value={option.value || option}>{option.label || option}</option>))}
+                            </Select>
+                          ) : field.type === 'checkbox' && field.options && field.options.length > 0 ? (
+                            <div className="space-y-2">
+                              {field.options.map((option: any, index: number) => {
+                                const optionValue = option.value || option;
+                                const currentValues = dynamicFields[field.name] || '';
+                                const isChecked = Array.isArray(currentValues) ? currentValues.includes(optionValue) : currentValues === optionValue;
+                                return (
+                                  <div key={index} className="flex items-center">
+                                    <input type="checkbox" id={`${field.name}_${index}`} checked={isChecked} onChange={(e) => {
+                                      const current = dynamicFields[field.name] || '';
+                                      let newValues;
+                                      if (Array.isArray(current)) {
+                                        if (e.target.checked) newValues = [...current, optionValue];
+                                        else newValues = current.filter((v: string) => v !== optionValue);
+                                      } else {
+                                        newValues = e.target.checked ? [optionValue] : [];
+                                      }
+                                      setDynamicFields(prev => ({ ...prev, [field.name]: newValues }));
+                                    }} className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
+                                    <label htmlFor={`${field.name}_${index}`} className="ml-2 text-sm text-gray-700 dark:text-gray-300">{option.label || option}</label>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : field.type === 'textarea' ? (
+                            <Textarea id={field.name} value={dynamicFields[field.name] || ''} onChange={(e) => setDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} placeholder={`Enter ${field.name.toLowerCase()}...`} rows={3} className="w-full" required={field.required} />
+                          ) : field.type === 'number' ? (
+                            <TextInput id={field.name} type="number" value={dynamicFields[field.name] || ''} onChange={(e) => setDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} placeholder={`Enter ${field.name.toLowerCase()}...`} className="w-full" required={field.required} />
+                          ) : field.type === 'date' ? (
+                            <TextInput id={field.name} type="date" value={dynamicFields[field.name] || ''} onChange={(e) => setDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} placeholder={`Enter ${field.name.toLowerCase()}...`} className="w-full" required={field.required} disabled={!!(leadStatuses.find(s => s._id === formData.status) as any)?.is_final_status} />
+                          ) : field.type === 'email' ? (
+                            <TextInput id={field.name} type="email" value={dynamicFields[field.name] || ''} onChange={(e) => setDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} placeholder={`Enter ${field.name.toLowerCase()}...`} className="w-full" required={field.required} />
+                          ) : field.type === 'tel' ? (
+                            <TextInput id={field.name} type="tel" value={dynamicFields[field.name] || ''} onChange={(e) => setDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} placeholder={`Enter ${field.name.toLowerCase()}...`} className="w-full" required={field.required} />
+                          ) : (
+                            <TextInput id={field.name} type="text" value={dynamicFields[field.name] || ''} onChange={(e) => setDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} placeholder={`Enter ${field.name.toLowerCase()}...`} className="w-full" required={field.required} />
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
 
               {/* Additional Lead Information */}
@@ -1253,7 +1395,7 @@ const LeadsModule = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <Label htmlFor="leadPriority" value="Lead Priority *" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
-                      <Select id="leadPriority" value={formData.leadPriority || ''} onChange={(e) => setFormData({ ...formData, leadPriority: e.target.value })} className="w-full" required disabled={!!editingLead}>
+                      <Select id="leadPriority" value={formData.leadPriority || ''} onChange={(e) => setFormData({ ...formData, leadPriority: e.target.value })} className="w-full" required>
                         <option value="">Select Priority</option>
                         <option value="Hot">Hot</option>
                         <option value="Cold">Cold</option>
@@ -1262,7 +1404,7 @@ const LeadsModule = () => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="propertyType" value="Property Type *" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
-                      <Select id="propertyType" value={formData.propertyType || ''} onChange={(e) => setFormData({ ...formData, propertyType: e.target.value })} className="w-full" required disabled={!!editingLead}>
+                      <Select id="propertyType" value={formData.propertyType || ''} onChange={(e) => setFormData({ ...formData, propertyType: e.target.value })} className="w-full" required>
                         <option value="">Select Property Type</option>
                         <option value="residential">Residential</option>
                         <option value="Commercial">Commercial</option>
@@ -1272,7 +1414,7 @@ const LeadsModule = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <Label htmlFor="configuration" value="Configuration *" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
-                      <Select id="configuration" value={formData.configuration || ''} onChange={(e) => setFormData({ ...formData, configuration: e.target.value })} className="w-full" required disabled={!!editingLead}>
+                      <Select id="configuration" value={formData.configuration || ''} onChange={(e) => setFormData({ ...formData, configuration: e.target.value })} className="w-full" required>
                         <option value="">Select Configuration</option>
                         <option value="1 BHK">1 BHK</option>
                         <option value="2 BHK">2 BHK</option>
@@ -1286,7 +1428,7 @@ const LeadsModule = () => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="fundingMode" value="Funding Mode *" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
-                      <Select id="fundingMode" value={formData.fundingMode || ''} onChange={(e) => setFormData({ ...formData, fundingMode: e.target.value })} className="w-full" required disabled={!!editingLead}>
+                      <Select id="fundingMode" value={formData.fundingMode || ''} onChange={(e) => setFormData({ ...formData, fundingMode: e.target.value })} className="w-full" required>
                         <option value="">Select Funding Mode</option>
                         <option value="Self Funded">Self Funded</option>
                         <option value="sale out property">Sale Out Property</option>
@@ -1298,7 +1440,7 @@ const LeadsModule = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <Label htmlFor="gender" value="Gender *" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
-                      <Select id="gender" value={formData.gender || ''} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} className="w-full" required disabled={!!editingLead}>
+                      <Select id="gender" value={formData.gender || ''} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} className="w-full" required>
                         <option value="">Select Gender</option>
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
@@ -1306,7 +1448,7 @@ const LeadsModule = () => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="budget" value="Budget *" className="text-sm font-medium text-gray-700 dark:text-gray-300" />
-                      <Select id="budget" value={formData.budget || ''} onChange={(e) => setFormData({ ...formData, budget: e.target.value })} className="w-full" required disabled={!!editingLead}>
+                      <Select id="budget" value={formData.budget || ''} onChange={(e) => setFormData({ ...formData, budget: e.target.value })} className="w-full" required>
                         <option value="">Select Budget Range</option>
                         <option value="25-50 Lakhs">25-50 Lakhs</option>
                         <option value="50 Lakhs - 1 Crore">50 Lakhs - 1 Crore</option>
@@ -1320,6 +1462,7 @@ const LeadsModule = () => {
                 </div>
               </div>
 
+              {(leadStatuses.find(s => s._id === formData.status)?.name?.toLowerCase() !== 'new') && (
               <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center mb-6">
                   <div className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg mr-3">
@@ -1335,6 +1478,7 @@ const LeadsModule = () => {
                   <Textarea id="notes" placeholder="Enter any additional notes about this lead..." value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} rows={4} className="w-full" />
                 </div>
               </div>
+              )}
             </div>
           </Modal.Body>
           <Modal.Footer className="flex flex-col sm:flex-row gap-2">

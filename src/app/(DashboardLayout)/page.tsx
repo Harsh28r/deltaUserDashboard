@@ -1,12 +1,12 @@
 
 import React from "react";
-import ModularDashboard from "../components/dashboard/ModularDashboard";
+import DashboardOverview from "../components/dashboard/DashboardOverview";
 
 const page = () => {
   return (
-    <>
-      <ModularDashboard />
-    </>
+    <div className="p-6">
+      <DashboardOverview />
+    </div>
   );
 };
 

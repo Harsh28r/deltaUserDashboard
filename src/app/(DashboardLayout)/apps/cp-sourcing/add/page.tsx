@@ -34,7 +34,7 @@ const getDetailedLocationString = (location: LocalLocationData): string => `${lo
 
 const AddCPSourcingPage: React.FC = () => {
   const router = useRouter();
-  const { token } = useAuth();
+  const { token, projectAccess } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [status, setStatus] = useState<{ type: "idle" | "success" | "error"; message?: string }>({ type: "idle" });
@@ -207,9 +207,9 @@ const AddCPSourcingPage: React.FC = () => {
               <h3 className="text-lg font-semibold text-gray-900">Channel Partner Information</h3>
               {cpAutoFilled && currentCPId && (
                 <PermissionGate permissions={["cp-sourcing:update", "channel-partner:update"]}>
-                  <Button size="sm" color="blue" onClick={openEditModal} className="flex items-center gap-2">
+                  <Button size="sm" color="blue" onClick={() => router.push(`/apps/cp-sourcing/edit/${currentCPId}`)} className="flex items-center gap-2">
                     <Icon icon="lucide:edit" className="w-4 h-4" />
-                    Edit Details
+                    Edit CP Sourcing
                   </Button>
                 </PermissionGate>
               )}
@@ -255,7 +255,15 @@ const AddCPSourcingPage: React.FC = () => {
                 <Label htmlFor="projectId" value="Project *" />
                 <Select id="projectId" name="projectId" value={formData.projectId} onChange={handleChange} disabled={isLoadingProjects}>
                   <option value="">Select a project</option>
-                  {projects.map((p) => (<option key={p._id} value={p._id}>{p.name}</option>))}
+                  {(projectAccess?.canAccessAll
+                    ? projects
+                    : (
+                        (projectAccess?.assignedProjects?.length
+                          ? projects.filter((p) => projectAccess.assignedProjects!.some((ap: any) => ap.id === p._id))
+                          : projects.filter((p) => (projectAccess?.allowedProjects || []).includes(p._id))
+                        )
+                      )
+                    ).map((p) => (<option key={p._id} value={p._id}>{p.name}</option>))}
                 </Select>
                 {errors.projectId && (<p className="text-sm text-red-600 mt-1">{errors.projectId}</p>)}
                 {isLoadingProjects && (<p className="text-sm text-gray-500 mt-1">Loading projects...</p>)}
