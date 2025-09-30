@@ -195,6 +195,54 @@ interface NotificationType {
   time: string;
 }
 
+// Real Notification API Data Types
+export interface NotificationUser {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+export interface NotificationData {
+  leadId?: string;
+  projectId?: string;
+  oldStatusId?: string;
+  newStatusId?: string;
+  changedBy?: string;
+  leadIds?: string[];
+  fromUser?: string;
+  transferredBy?: string;
+  testData?: string;
+  timestamp?: string;
+}
+
+export interface ApiNotification {
+  _id: string;
+  user: NotificationUser;
+  recipient: NotificationUser;
+  type: string;
+  title: string;
+  message: string;
+  data: NotificationData;
+  priority: string;
+  read: boolean;
+  status: string;
+  createdBy?: NotificationUser;
+  createdAt: string;
+  timestamp: string;
+  updatedAt: string;
+}
+
+export interface NotificationResponse {
+  notifications: ApiNotification[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    limit: number;
+  };
+}
+
 const Notification: NotificationType[] = [
   {
     icon: "solar:widget-3-line-duotone",

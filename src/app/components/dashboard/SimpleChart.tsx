@@ -82,3 +82,4 @@ const SimpleChart: React.FC<SimpleChartProps> = ({ data, type, className = "" })
 };
 
 export default SimpleChart;
+
