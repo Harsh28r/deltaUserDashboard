@@ -24,6 +24,7 @@ interface Lead {
   updatedAt: string;
   isActive: boolean;
   ownerName: string;
+  cpSourcingName?: string | null;
 }
 
 const LeadsPage = () => {
@@ -111,6 +112,20 @@ const LeadsPage = () => {
         const ownerName = typeof raw.owner === 'object' && raw.owner !== null
           ? (raw.owner.name || raw.owner.fullName || raw.owner.email || '')
           : (raw.owner || raw.user?.name || raw.createdBy?.name || '');
+        // Handle CP Sourcing - check if cpSourcingId exists and has userId.name
+        let cpSourcingName = '';
+        if (raw.cpSourcingId && raw.cpSourcingId !== null && raw.cpSourcingId.userId && raw.cpSourcingId.userId.name) {
+          cpSourcingName = raw.cpSourcingId.userId.name;
+        }
+        
+        // Also check customData for CP sourcing info as fallback
+        if (!cpSourcingName && raw.customData && raw.customData["Channel Partner Sourcing"]) {
+          const cpSourcingId = raw.customData["Channel Partner Sourcing"];
+          // This would need to be looked up from cpSourcingOptions if available
+          // For now, we'll just note that CP sourcing exists but user is unknown
+          cpSourcingName = 'Unknown CP User';
+        }
+        
         return {
           _id: raw._id,
           name: nameFromCustom,
@@ -124,6 +139,7 @@ const LeadsPage = () => {
           updatedAt: raw.updatedAt,
           isActive: raw.isActive ?? true,
           ownerName: ownerName || 'N/A',
+          cpSourcingName: cpSourcingName || null,
         } as Lead;
       });
       setLeads(mapped);
@@ -134,6 +150,7 @@ const LeadsPage = () => {
       setIsLoading(false);
     }
   };
+
 
   const getFieldsForStatus = (statusId: string) => {
     const st = (leadStatuses || []).find((s: any) => s._id === statusId) as any;
@@ -347,6 +364,7 @@ const LeadsPage = () => {
                 <Table.HeadCell>Source</Table.HeadCell>
                 <Table.HeadCell>Status</Table.HeadCell>
                 <Table.HeadCell>Owner</Table.HeadCell>
+                <Table.HeadCell>CP Sourcing</Table.HeadCell>
                 <Table.HeadCell>Created</Table.HeadCell>
                 <Table.HeadCell>Actions</Table.HeadCell>
               </Table.Head>
@@ -359,9 +377,20 @@ const LeadsPage = () => {
                     <Table.Cell>{lead.email}</Table.Cell>
                     <Table.Cell>{lead.phone}</Table.Cell>
                     <Table.Cell>
-                      <Badge color="blue" size="sm">
-                        {lead.source}
-                      </Badge>
+                      <div className="space-y-1">
+                        <Badge color="blue" size="sm">
+                          {lead.source}
+                        </Badge>
+                        {lead.cpSourcingName ? (
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            <span className="font-medium">Sourced by:</span> {lead.cpSourcingName}
+                          </div>
+                        ) : lead.source?.toLowerCase().includes('channel partner') ? (
+                          <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                            <span className="font-medium">No CP user assigned</span>
+                          </div>
+                        ) : null}
+                      </div>
                     </Table.Cell>
                     <Table.Cell>
                       <Badge 
@@ -372,6 +401,17 @@ const LeadsPage = () => {
                       </Badge>
                     </Table.Cell>
                     <Table.Cell>{lead.ownerName}</Table.Cell>
+                    <Table.Cell>
+                      {lead.cpSourcingName ? (
+                        <Badge color={lead.cpSourcingName === 'Unknown CP User' ? 'gray' : 'purple'} size="sm">
+                          {lead.cpSourcingName}
+                        </Badge>
+                      ) : lead.source?.toLowerCase().includes('channel partner') ? (
+                        <span className="text-gray-400 text-xs italic">Not assigned</span>
+                      ) : (
+                        <span className="text-gray-400 text-sm">-</span>
+                      )}
+                    </Table.Cell>
                     <Table.Cell>{formatDate(lead.createdAt)}</Table.Cell>
                     <Table.Cell>
                       <div className="flex items-center gap-2">

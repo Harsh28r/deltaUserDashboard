@@ -72,6 +72,9 @@ export const API_ENDPOINTS = {
   UPDATE_USER_PERMISSIONS: (userId: string) => `${API_BASE_URL}/api/permissions/user/${userId}/effective-permissions`,
   ROLE_PERMISSIONS: (roleId: string) => `${API_BASE_URL}/api/permissions/role/${roleId}/permissions`,
   UPDATE_ROLE_PERMISSIONS: (roleId: string) => `${API_BASE_URL}/api/permissions/role/${roleId}/permissions`,
+  
+  // Team Hierarchy
+  TEAM_HIERARCHY: (userId: string) => `${API_BASE_URL}/api/user-reporting/hierarchy/${userId}`,
 };
 
 // Utility function for creating refresh events

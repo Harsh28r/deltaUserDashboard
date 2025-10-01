@@ -88,6 +88,15 @@ const ModuleSidebar = () => {
       permission: 'user:read_all',
       description: 'Manage users',
       hasSubmenu: false
+    },
+    {
+      id: 'team-hierarchy',
+      name: 'Team Hierarchy',
+      icon: 'solar:users-group-two-rounded-line-duotone',
+      color: 'text-teal-600',
+      permission: 'user:read',
+      description: 'View team reporting structure',
+      hasSubmenu: false
     }
   ];
 
@@ -109,6 +118,7 @@ const ModuleSidebar = () => {
       'cp-sourcing': '/apps/cp-sourcing',
       'notifications': '/apps/notifications',
       'usermanagement': '/apps/user-management',
+      'team-hierarchy': '/apps/team-hierarchy',
     };
     return routes[moduleId] || '#';
   };

@@ -85,7 +85,7 @@ const AddLeadPage = () => {
 
   const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newProjectId = e.target.value;
-    setFormData(prev => ({ ...prev, projectId: newProjectId, cpSourcingId: "" }));
+    setFormData(prev => ({ ...prev, project: newProjectId, cpSourcingId: "" }));
     setCPSourcingOptions([]);
   };
 
@@ -182,6 +182,15 @@ const AddLeadPage = () => {
       return;
     }
 
+    // If channel partner is selected as source, validate channel partner selection
+    const isChannelPartner = formData.source === 'channel-partner' || 
+      leadSources.some(source => source._id === formData.source && source.name?.toLowerCase?.() === 'channel partner');
+    
+    if (isChannelPartner && !formData.channelPartner) {
+      setAlertMessage({ type: "error", message: "Please select a channel partner" });
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       const requestBody = {
@@ -189,7 +198,8 @@ const AddLeadPage = () => {
         leadSourceId: formData.source,
         currentStatusId: formData.status,
         userId: user?.id,
-        
+        channelPartner: formData.channelPartner || null,
+        cpSourcingId: formData.cpSourcingId || null,
 
         customData: {
           "First Name": formData.name.split(" ")[0] || formData.name,

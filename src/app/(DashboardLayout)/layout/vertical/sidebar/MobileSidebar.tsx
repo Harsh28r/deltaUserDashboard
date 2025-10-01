@@ -8,6 +8,7 @@ import { useAuth } from "@/app/context/AuthContext";
 import { usePermissions } from "@/app/context/PermissionContext";
 import { useModuleSelection } from "@/app/context/ModuleContext";
 import { Icon } from "@iconify/react";
+import { useRouter } from "next/navigation";
 
 interface MobileSidebarProps {
   onClose?: () => void;
@@ -18,6 +19,7 @@ const MobileSidebar = ({ onClose }: MobileSidebarProps) => {
   const { hasAnyPermission } = usePermissions();
   const { selectedModule, setSelectedModule } = useModuleSelection();
   const [expandedModules, setExpandedModules] = useState<string[]>([]);
+  const router = useRouter();
 
 
 
@@ -86,6 +88,15 @@ const MobileSidebar = ({ onClose }: MobileSidebarProps) => {
       permission: 'user:read_all',
       description: 'Manage users',
       hasSubmenu: false
+    },
+    {
+      id: 'team-hierarchy',
+      name: 'Team Hierarchy',
+      icon: 'solar:users-group-two-rounded-line-duotone',
+      color: 'text-teal-600',
+      permission: 'user:read',
+      description: 'View team reporting structure',
+      hasSubmenu: false
     }
   ];
 
@@ -95,6 +106,29 @@ const MobileSidebar = ({ onClose }: MobileSidebarProps) => {
         ? prev.filter(id => id !== moduleId)
         : [...prev, moduleId]
     );
+  };
+
+  // Map module IDs to their routes
+  const getModuleRoute = (moduleId: string): string => {
+    const routes: { [key: string]: string } = {
+      'leads': '/apps/leads',
+      'channel-partners': '/apps/channel-partners',
+      'cp-sourcing': '/apps/cp-sourcing',
+      'notifications': '/apps/notifications',
+      'usermanagement': '/apps/user-management',
+      'team-hierarchy': '/apps/team-hierarchy',
+    };
+    return routes[moduleId] || '#';
+  };
+
+  // Map submenu IDs to their routes
+  const getSubmenuRoute = (submenuId: string): string => {
+    const routes: { [key: string]: string } = {
+      'leads-main': '/apps/leads',
+      'leadsource': '/apps/lead-sources',
+      'leadsstatus': '/apps/lead-statuses',
+    };
+    return routes[submenuId] || '#';
   };
 
   // Enhanced permission checking using actual API permissions
@@ -141,6 +175,7 @@ const MobileSidebar = ({ onClose }: MobileSidebarProps) => {
                   onClick={(e: React.MouseEvent) => {
                     e.preventDefault();
                     setSelectedModule(null);
+                    router.push('/');
                     onClose?.();
                   }}
                 >
@@ -163,13 +198,14 @@ const MobileSidebar = ({ onClose }: MobileSidebarProps) => {
                   <div key={module.id} className="mb-2">
                     {/* Main Module Item */}
                     <Sidebar.Item
-                      href="#"
+                      href={module.hasSubmenu ? "#" : getModuleRoute(module.id)}
                       onClick={(e: React.MouseEvent) => {
                         e.preventDefault();
                         if (module.hasSubmenu) {
                           toggleExpanded(module.id);
                         } else {
                           setSelectedModule(module.id);
+                          router.push(getModuleRoute(module.id));
                           onClose?.();
                         }
                       }}
@@ -204,10 +240,11 @@ const MobileSidebar = ({ onClose }: MobileSidebarProps) => {
                         {module.submenu?.filter(subItem => hasAnyPermission([subItem.permission])).map((subItem) => (
                           <Sidebar.Item
                             key={subItem.id}
-                            href="#"
+                            href={getSubmenuRoute(subItem.id)}
                             onClick={(e: React.MouseEvent) => {
                               e.preventDefault();
                               setSelectedModule(subItem.id);
+                              router.push(getSubmenuRoute(subItem.id));
                               onClose?.();
                             }}
                             className={`transition-all cursor-pointer text-sm ${
