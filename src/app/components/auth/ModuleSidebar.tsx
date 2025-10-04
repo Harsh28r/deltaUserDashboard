@@ -81,6 +81,15 @@ const ModuleSidebar = () => {
       hasSubmenu: false
     },
     {
+      id: 'reminders',
+      name: 'Reminders',
+      icon: 'solar:clock-circle-line-duotone',
+      color: 'text-indigo-600',
+      permission: 'reminders:read',
+      description: 'Manage reminders',
+      hasSubmenu: false
+    },
+    {
       id: 'usermanagement',
       name: 'User Management',
       icon: 'solar:user-id-line-duotone',
@@ -117,6 +126,7 @@ const ModuleSidebar = () => {
       'channel-partners': '/apps/channel-partners',
       'cp-sourcing': '/apps/cp-sourcing',
       'notifications': '/apps/notifications',
+      'reminders': '/apps/reminders',
       'usermanagement': '/apps/user-management',
       'team-hierarchy': '/apps/team-hierarchy',
     };

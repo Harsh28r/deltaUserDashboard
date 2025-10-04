@@ -12,6 +12,7 @@ import NotificationsModule from "./modules/NotificationsModule";
 import LeadsSourceModule from "./modules/LeadsSourceModule";
 import LeadsStatusModule from "./modules/LeadsStatusModule";
 import UserManagementModule from "./modules/UserManagementModule";
+import RemindersModule from "./modules/RemindersModule";
 
 const ModularDashboard = () => {
   const { user, userPermissions } = useAuth();
@@ -26,6 +27,7 @@ const ModularDashboard = () => {
     'leadsstatus:read',
     'leadsstatus:read_all',
     'notifications:read',
+    'reminders:read',
     'user:read_all',
     'channel-partner:read',
     'channel-partner:read_all'
@@ -46,6 +48,9 @@ const ModularDashboard = () => {
   
   const canAccessChannelPartners = hasAnyPermission(['channel-partner:read', 'channel-partner:read_all']) || 
     userPermissions.some(p => p.includes('channel-partner'));
+  
+  const canAccessReminders = hasAnyPermission(['reminders:read', 'reminders:read_all']) || 
+    userPermissions.some(p => p.includes('reminders'));
 
   // If user has no permissions at all, show access denied
   if (!hasDashboardAccess) {
@@ -78,6 +83,8 @@ const ModularDashboard = () => {
         return canAccessLeads ? <LeadsModule /> : <div className="text-center py-8"><p>No permission to access Leads module</p></div>;
       case 'notifications':
         return <NotificationsModule />;
+      case 'reminders':
+        return canAccessReminders ? <RemindersModule /> : <div className="text-center py-8"><p>No permission to access Reminders module</p></div>;
       case 'leadsource':
         return canAccessLeadSources ? <LeadsSourceModule /> : <div className="text-center py-8"><p>No permission to access Lead Sources module</p></div>;
       case 'leadsstatus':
@@ -102,6 +109,7 @@ const ModularDashboard = () => {
               {selectedModule === 'leadsource' && 'Lead Sources'}
               {selectedModule === 'leadsstatus' && 'Lead Statuses'}
               {selectedModule === 'notifications' && 'Notifications'}
+              {selectedModule === 'reminders' && 'Reminders'}
               {selectedModule === 'usermanagement' && 'User Management'}
             </h3>
           </div>
@@ -200,8 +208,23 @@ const ModularDashboard = () => {
                 </div>
               )}
 
+              {/* Reminders Module */}
+              {canAccessReminders && (
+                <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900 rounded-lg flex items-center justify-center">
+                      <Icon icon="solar:clock-circle-line-duotone" className="text-indigo-600 dark:text-indigo-400" height={20} width={20} />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-900 dark:text-white">Reminders</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Manage reminders</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* No modules available */}
-              {!canAccessLeads && !canAccessLeadSources && !canAccessLeadStatuses && !canAccessUserManagement && !canAccessChannelPartners && (
+              {!canAccessLeads && !canAccessLeadSources && !canAccessLeadStatuses && !canAccessUserManagement && !canAccessChannelPartners && !canAccessReminders && (
                 <div className="col-span-full text-center py-8">
                   <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
                     <Icon icon="solar:widget-add-line-duotone" className="text-gray-400" height={24} width={24} />

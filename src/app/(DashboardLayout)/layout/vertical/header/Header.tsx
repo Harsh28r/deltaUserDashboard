@@ -16,6 +16,7 @@ import { Drawer } from "flowbite-react";
 import MobileSidebar from "../sidebar/MobileSidebar";
 import HorizontalMenu from "../../horizontal/header/HorizontalMenu";
 import { CustomizerContext } from "@/app/context/CustomizerContext";
+import WebSocketStatus from "@/app/components/WebSocketStatus";
 
 interface HeaderPropsType {
   layoutType: string;
@@ -159,6 +160,9 @@ const Header = ({ layoutType, onMobileMenuToggle }: HeaderPropsType) => {
 
               {/* Notification Dropdown */}
               <Notifications />
+
+              {/* WebSocket Status */}
+              <WebSocketStatus className="hidden lg:flex" size="sm" />
 
               {/* Profile Dropdown */}
               <Profile />

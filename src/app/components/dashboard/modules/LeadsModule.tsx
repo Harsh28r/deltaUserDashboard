@@ -3,8 +3,11 @@ import React, { useState, useEffect } from "react";
 import { Button, Card, Table, Badge, Modal, TextInput, Label, Alert, Select, Textarea, Tabs } from "flowbite-react";
 import { Icon } from "@iconify/react";
 import { useAuth } from "@/app/context/AuthContext";
+import { useWebSocket } from "@/app/context/WebSocketContext";
 import { API_ENDPOINTS } from "@/lib/config";
 import { useSearchParams, useRouter } from "next/navigation";
+import { toast } from "@/hooks/use-toast";
+import WebSocketStatus from "@/app/components/WebSocketStatus";
 
 // Date formatting helpers to mirror reference form behavior
 const formatDateToDDMMYYYY = (date: Date): string => {
@@ -92,6 +95,7 @@ interface Project {
 
 const LeadsModule = () => {
   const { token, user, projectAccess } = useAuth();
+  const { socket, connected, subscribeToLeads, unsubscribeFromLeads } = useWebSocket();
   const searchParams = useSearchParams();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("leads");
@@ -187,6 +191,89 @@ const LeadsModule = () => {
       }
     }
   }, [projects, projectAccess, formData.projectId]);
+
+  // WebSocket subscription and event listeners
+  useEffect(() => {
+    if (connected) {
+      subscribeToLeads();
+    }
+
+    return () => {
+      if (connected) {
+        unsubscribeFromLeads();
+      }
+    };
+  }, [connected, subscribeToLeads, unsubscribeFromLeads]);
+
+  // Listen for WebSocket events
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleLeadCreated = (data: { lead: any; createdBy: { _id: string; name: string } }) => {
+      console.log('Lead created:', data);
+      const transformedLead = transformLeadData([data.lead])[0];
+      setLeads(prev => [transformedLead, ...prev]);
+      toast({
+        title: "New Lead",
+        description: `${data.createdBy.name} created a new lead: ${transformedLead.name}`,
+      });
+    };
+
+    const handleLeadUpdated = (data: { lead: any; updatedBy: { _id: string; name: string } }) => {
+      console.log('Lead updated:', data);
+      const transformedLead = transformLeadData([data.lead])[0];
+      setLeads(prev => prev.map(l => l._id === data.lead._id ? transformedLead : l));
+      toast({
+        title: "Lead Updated",
+        description: `${data.updatedBy.name} updated lead: ${transformedLead.name}`,
+      });
+    };
+
+    const handleLeadDeleted = (data: { leadId: string; deletedBy: { _id: string; name: string } }) => {
+      console.log('Lead deleted:', data);
+      setLeads(prev => prev.filter(l => l._id !== data.leadId));
+      toast({
+        title: "Lead Deleted",
+        description: `${data.deletedBy.name} deleted a lead`,
+      });
+    };
+
+    const handleLeadStatusChanged = (data: { lead: any; changedBy: { _id: string; name: string } }) => {
+      console.log('Lead status changed:', data);
+      const transformedLead = transformLeadData([data.lead])[0];
+      setLeads(prev => prev.map(l => l._id === data.lead._id ? transformedLead : l));
+      toast({
+        title: "Lead Status Changed",
+        description: `${data.changedBy.name} changed status of: ${transformedLead.name}`,
+      });
+    };
+
+    const handleLeadAssigned = (data: { lead: any; assignedBy: { _id: string; name: string } }) => {
+      console.log('Lead assigned:', data);
+      const transformedLead = transformLeadData([data.lead])[0];
+      setLeads(prev => prev.map(l => l._id === data.lead._id ? transformedLead : l));
+      toast({
+        title: "Lead Assigned",
+        description: `${data.assignedBy.name} assigned lead: ${transformedLead.name}`,
+      });
+    };
+
+    // Register event listeners
+    socket.on('lead-created', handleLeadCreated);
+    socket.on('lead-updated', handleLeadUpdated);
+    socket.on('lead-deleted', handleLeadDeleted);
+    socket.on('lead-status-changed', handleLeadStatusChanged);
+    socket.on('lead-assigned', handleLeadAssigned);
+
+    // Cleanup
+    return () => {
+      socket.off('lead-created', handleLeadCreated);
+      socket.off('lead-updated', handleLeadUpdated);
+      socket.off('lead-deleted', handleLeadDeleted);
+      socket.off('lead-status-changed', handleLeadStatusChanged);
+      socket.off('lead-assigned', handleLeadAssigned);
+    };
+  }, [socket]);
 
   const fetchLeads = async () => {
     if (isLoadingLeads) return;
@@ -919,6 +1006,9 @@ const LeadsModule = () => {
               • Complete Lead Management System
             </span>
           </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <WebSocketStatus size="sm" />
         </div>
       </div>
 

@@ -5,6 +5,9 @@ import { Button, Modal, Table, Badge, Alert } from "flowbite-react";
 import { Icon } from "@iconify/react";
 import { ApiService } from "@/app/utils/api/endpoints";
 import { useAuth } from "@/app/context/AuthContext";
+import { useWebSocket } from "@/app/context/WebSocketContext";
+import { toast } from "@/hooks/use-toast";
+import WebSocketStatus from "@/app/components/WebSocketStatus";
 
 interface LeadStatus {
   id: string;
@@ -18,6 +21,7 @@ interface LeadStatus {
 
 const LeadStatusesManager = () => {
   const { user, projectAccess } = useAuth();
+  const { socket, connected } = useWebSocket();
   
   // Check permissions for lead status management
   const isSuperAdmin = user?.role === 'superadmin' || user?.role === 'admin';
@@ -58,6 +62,50 @@ const LeadStatusesManager = () => {
   useEffect(() => {
     fetchLeadStatuses();
   }, []);
+
+  // WebSocket event listeners for real-time lead status updates
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleLeadStatusCreated = (data: { leadStatus: LeadStatus; createdBy: { _id: string; name: string } }) => {
+      console.log('Lead status created:', data);
+      setLeadStatuses(prev => [data.leadStatus, ...prev]);
+      toast({
+        title: "New Lead Status",
+        description: `${data.createdBy.name} created a new lead status: ${data.leadStatus.name}`,
+      });
+    };
+
+    const handleLeadStatusUpdated = (data: { leadStatus: LeadStatus; updatedBy: { _id: string; name: string } }) => {
+      console.log('Lead status updated:', data);
+      setLeadStatuses(prev => prev.map(ls => ls.id === data.leadStatus.id ? data.leadStatus : ls));
+      toast({
+        title: "Lead Status Updated",
+        description: `${data.updatedBy.name} updated lead status: ${data.leadStatus.name}`,
+      });
+    };
+
+    const handleLeadStatusDeleted = (data: { leadStatusId: string; deletedBy: { _id: string; name: string } }) => {
+      console.log('Lead status deleted:', data);
+      setLeadStatuses(prev => prev.filter(ls => ls.id !== data.leadStatusId));
+      toast({
+        title: "Lead Status Deleted",
+        description: `${data.deletedBy.name} deleted a lead status`,
+      });
+    };
+
+    // Register event listeners
+    socket.on('lead-status-created', handleLeadStatusCreated);
+    socket.on('lead-status-updated', handleLeadStatusUpdated);
+    socket.on('lead-status-deleted', handleLeadStatusDeleted);
+
+    // Cleanup
+    return () => {
+      socket.off('lead-status-created', handleLeadStatusCreated);
+      socket.off('lead-status-updated', handleLeadStatusUpdated);
+      socket.off('lead-status-deleted', handleLeadStatusDeleted);
+    };
+  }, [socket]);
 
   const fetchLeadStatuses = async () => {
     try {
@@ -150,12 +198,15 @@ const LeadStatusesManager = () => {
             userRole = {user?.role || 'undefined'}
           </div>
         </div>
-        {canManageLeadStatuses && (
-          <Button onClick={openModal} className="bg-blue-600 hover:bg-blue-700">
-            <Icon icon="solar:add-circle-line-duotone" className="mr-2" height={20} />
-            Add Lead Status
-          </Button>
-        )}
+        <div className="flex items-center gap-3">
+          <WebSocketStatus size="sm" />
+          {canManageLeadStatuses && (
+            <Button onClick={openModal} className="bg-blue-600 hover:bg-blue-700">
+              <Icon icon="solar:add-circle-line-duotone" className="mr-2" height={20} />
+              Add Lead Status
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Error Alert */}

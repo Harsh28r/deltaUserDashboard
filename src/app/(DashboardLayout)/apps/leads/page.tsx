@@ -4,12 +4,15 @@ import { Button, Card, Table, Badge, Modal, Alert, Label, Select, TextInput, Tex
 import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
+import { useWebSocket } from "@/app/context/WebSocketContext";
 import { API_ENDPOINTS } from "@/lib/config";
 import { useLeadData } from "./hooks/useLeadData";
 import { FormField } from "./types";
 import PermissionGate from "@/app/components/auth/PermissionGate";
 import { useLeadPermissions } from "@/hooks/use-permissions";
 import { PERMISSIONS } from "@/app/types/permissions";
+import { toast } from "@/hooks/use-toast";
+import WebSocketStatus from "@/app/components/WebSocketStatus";
 
 interface Lead {
   _id: string;
@@ -30,6 +33,7 @@ interface Lead {
 const LeadsPage = () => {
   const router = useRouter();
   const { token, user, userPermissions } = useAuth();
+  const { socket, connected, subscribeToLeads, unsubscribeFromLeads } = useWebSocket();
   const { canUpdateLeadStatus, canCreateLeads } = useLeadPermissions();
   const canCreateLead = canCreateLeads;
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -60,6 +64,173 @@ const LeadsPage = () => {
       fetchLeads();
     }
   }, [token]);
+
+  // WebSocket subscription and event listeners
+  useEffect(() => {
+    if (connected) {
+      subscribeToLeads();
+    }
+
+    return () => {
+      if (connected) {
+        unsubscribeFromLeads();
+      }
+    };
+  }, [connected, subscribeToLeads, unsubscribeFromLeads]);
+
+  const transformLeadData = (leadsData: any[]): Lead[] => {
+    return leadsData.map((raw) => {
+      const cd = raw.customData || {};
+      const nameFromCustom = cd["First Name"] && cd["Last Name"] ? `${cd["First Name"]} ${cd["Last Name"]}` : cd["First Name"] || raw.name || "";
+      const email = cd["Email"] || raw.email || "";
+      const phone = cd["Phone"] || raw.phone || "";
+      const company = cd["Company"] || raw.company || "";
+      const source = raw.leadSource?.name || raw.source || "";
+      const status = raw.currentStatus?.name || raw.status || "";
+      const notes = cd["Notes"] || raw.notes || "";
+      const ownerName = typeof raw.owner === 'object' && raw.owner !== null
+        ? (raw.owner.name || raw.owner.fullName || raw.owner.email || '')
+        : (raw.owner || raw.user?.name || raw.createdBy?.name || '');
+      
+      // Handle CP Sourcing
+      let cpSourcingName = '';
+      if (raw.cpSourcingId && raw.cpSourcingId !== null && raw.cpSourcingId.userId && raw.cpSourcingId.userId.name) {
+        cpSourcingName = raw.cpSourcingId.userId.name;
+      }
+      
+      if (!cpSourcingName && raw.customData && raw.customData["Channel Partner Sourcing"]) {
+        cpSourcingName = 'Unknown CP User';
+      }
+      
+      return {
+        _id: raw._id,
+        name: nameFromCustom,
+        email,
+        phone,
+        company,
+        source,
+        status,
+        notes,
+        createdAt: raw.createdAt,
+        updatedAt: raw.updatedAt,
+        isActive: raw.isActive ?? true,
+        ownerName: ownerName || 'N/A',
+        cpSourcingName: cpSourcingName || null,
+      } as Lead;
+    });
+  };
+
+  // Listen for WebSocket events
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleLeadCreated = (data: { lead: any; createdBy: { _id: string; name: string } }) => {
+      console.log('Lead created:', data);
+      const transformedLead = transformLeadData([data.lead])[0];
+      setLeads(prev => [transformedLead, ...prev]);
+      toast({
+        title: "New Lead",
+        description: `${data.createdBy.name} created a new lead: ${transformedLead.name}`,
+      });
+    };
+
+    const handleLeadUpdated = (data: { lead: any; updatedBy: { _id: string; name: string } }) => {
+      console.log('Lead updated:', data);
+      const transformedLead = transformLeadData([data.lead])[0];
+      setLeads(prev => prev.map(l => l._id === data.lead._id ? transformedLead : l));
+      toast({
+        title: "Lead Updated",
+        description: `${data.updatedBy.name} updated lead: ${transformedLead.name}`,
+      });
+    };
+
+    const handleLeadDeleted = (data: { leadId: string; deletedBy: { _id: string; name: string } }) => {
+      console.log('Lead deleted:', data);
+      setLeads(prev => prev.filter(l => l._id !== data.leadId));
+      toast({
+        title: "Lead Deleted",
+        description: `${data.deletedBy.name} deleted a lead`,
+      });
+    };
+
+    const handleLeadStatusChanged = (data: { lead: any; changedBy: { _id: string; name: string } }) => {
+      console.log('Lead status changed:', data);
+      const transformedLead = transformLeadData([data.lead])[0];
+      setLeads(prev => prev.map(l => l._id === data.lead._id ? transformedLead : l));
+      toast({
+        title: "Lead Status Changed",
+        description: `${data.changedBy.name} changed status of: ${transformedLead.name}`,
+      });
+    };
+
+    const handleLeadAssigned = (data: { lead: any; assignedBy: { _id: string; name: string } }) => {
+      console.log('Lead assigned:', data);
+      const transformedLead = transformLeadData([data.lead])[0];
+      setLeads(prev => prev.map(l => l._id === data.lead._id ? transformedLead : l));
+      toast({
+        title: "Lead Assigned",
+        description: `${data.assignedBy.name} assigned lead: ${transformedLead.name}`,
+      });
+    };
+
+    // Register event listeners
+    socket.on('lead-created', handleLeadCreated);
+    socket.on('lead-updated', handleLeadUpdated);
+    socket.on('lead-deleted', handleLeadDeleted);
+    socket.on('lead-status-changed', handleLeadStatusChanged);
+    socket.on('lead-assigned', handleLeadAssigned);
+
+    // Cleanup
+    return () => {
+      socket.off('lead-created', handleLeadCreated);
+      socket.off('lead-updated', handleLeadUpdated);
+      socket.off('lead-deleted', handleLeadDeleted);
+      socket.off('lead-status-changed', handleLeadStatusChanged);
+      socket.off('lead-assigned', handleLeadAssigned);
+    };
+  }, [socket]);
+
+  // const transformLeadData = (leadsData: any[]): Lead[] => {
+  //   return leadsData.map((raw) => {
+  //     const cd = raw.customData || {};
+  //     const nameFromCustom = cd["First Name"] && cd["Last Name"] ? `${cd["First Name"]} ${cd["Last Name"]}` : cd["First Name"] || raw.name || "";
+  //     const email = cd["Email"] || raw.email || "";
+  //     const phone = cd["Phone"] || raw.phone || "";
+  //     const company = cd["Company"] || raw.company || "";
+  //     const source = raw.leadSource?.name || raw.source || "";
+  //     const status = raw.currentStatus?.name || raw.status || "";
+  //     const notes = cd["Notes"] || raw.notes || "";
+  //     const ownerName = typeof raw.owner === 'object' && raw.owner !== null
+  //       ? (raw.owner.name || raw.owner.fullName || raw.owner.email || '')
+  //       : (raw.owner || raw.user?.name || raw.createdBy?.name || '');
+      
+  //     // Handle CP Sourcing
+  //     let cpSourcingName = '';
+  //     if (raw.cpSourcingId && raw.cpSourcingId !== null && raw.cpSourcingId.userId && raw.cpSourcingId.userId.name) {
+  //       cpSourcingName = raw.cpSourcingId.userId.name;
+  //     }
+      
+  //     if (!cpSourcingName && raw.customData && raw.customData["Channel Partner Sourcing"]) {
+  //       cpSourcingName = 'Unknown CP User';
+  //     }
+      
+  //     return {
+  //       _id: raw._id,
+  //       name: nameFromCustom,
+  //       email,
+  //       phone,
+  //       company,
+  //       source,
+  //       status,
+  //       notes,
+  //       createdAt: raw.createdAt,
+  //       updatedAt: raw.updatedAt,
+  //       isActive: raw.isActive ?? true,
+  //       ownerName: ownerName || 'N/A',
+  //       cpSourcingName: cpSourcingName || null,
+  //     } as Lead;
+  //   });
+  // };
 
   const fetchLeads = async () => {
     try {
@@ -318,16 +489,19 @@ const LeadsPage = () => {
           <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
           <p className="text-gray-600">Manage your lead pipeline</p>
         </div>
-        {canCreateLead && (
-          <Button
-            color="orange"
-            onClick={() => router.push('/apps/leads/add')}
-            className="flex items-center gap-2"
-          >
-            <Icon icon="lucide:plus" className="w-4 h-4" />
-            Add Lead
-          </Button>
-        )}
+        <div className="flex items-center gap-3">
+          <WebSocketStatus size="sm" />
+          {canCreateLead && (
+            <Button
+              color="orange"
+              onClick={() => router.push('/apps/leads/add')}
+              className="flex items-center gap-2"
+            >
+              <Icon icon="lucide:plus" className="w-4 h-4" />
+              Add Lead
+            </Button>
+          )}
+        </div>
       </div>
 
       {error && (

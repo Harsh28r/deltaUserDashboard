@@ -6,9 +6,12 @@ import SimpleBar from "simplebar-react";
 import Link from "next/link";
 import { NotificationService } from "@/app/services/notificationService";
 import { ApiNotification, NotificationResponse } from "./Data";
+import { useWebSocket } from "@/app/context/WebSocketContext";
+import { toast } from "@/hooks/use-toast";
 import "@/app/css/components/notifications.css";
 
 const Notifications = () => {
+  const { socket, connected } = useWebSocket();
   const [notifications, setNotifications] = useState<ApiNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -17,6 +20,51 @@ const Notifications = () => {
   useEffect(() => {
     fetchNotifications();
   }, []);
+
+  // WebSocket event listeners for real-time notifications
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewNotification = (data: { notification: ApiNotification; createdBy: { _id: string; name: string } }) => {
+      console.log('New notification received:', data);
+      setNotifications(prev => [data.notification, ...prev]);
+      setUnreadCount(prev => prev + 1);
+      
+      // Show toast notification
+      toast({
+        title: "New Notification",
+        description: data.notification.message || "You have a new notification",
+      });
+    };
+
+    const handleNotificationRead = (data: { notificationId: string; readBy: { _id: string; name: string } }) => {
+      console.log('Notification marked as read:', data);
+      setNotifications(prev => 
+        prev.map(n => 
+          n._id === data.notificationId ? { ...n, read: true } : n
+        )
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    };
+
+    const handleNotificationDeleted = (data: { notificationId: string; deletedBy: { _id: string; name: string } }) => {
+      console.log('Notification deleted:', data);
+      setNotifications(prev => prev.filter(n => n._id !== data.notificationId));
+      // Note: We don't decrement unread count here as we don't know if it was read or not
+    };
+
+    // Register event listeners
+    socket.on('notification', handleNewNotification);
+    socket.on('notification-read', handleNotificationRead);
+    socket.on('notification-deleted', handleNotificationDeleted);
+
+    // Cleanup
+    return () => {
+      socket.off('notification', handleNewNotification);
+      socket.off('notification-read', handleNotificationRead);
+      socket.off('notification-deleted', handleNotificationDeleted);
+    };
+  }, [socket]);
 
   const fetchNotifications = async () => {
     try {

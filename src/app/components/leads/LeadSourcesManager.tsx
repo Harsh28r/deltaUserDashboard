@@ -4,7 +4,10 @@ import React, { useState, useEffect } from "react";
 import { Button, Modal, Table, Badge, Alert, TextInput, Label, Textarea, Card } from "flowbite-react";
 import { Icon } from "@iconify/react";
 import { useAuth } from "@/app/context/AuthContext";
+import { useWebSocket } from "@/app/context/WebSocketContext";
 import { API_ENDPOINTS } from "@/app/utils/api/endpoints";
+import { toast } from "@/hooks/use-toast";
+import WebSocketStatus from "@/app/components/WebSocketStatus";
 
 interface LeadSource {
   _id: string;
@@ -17,6 +20,7 @@ interface LeadSource {
 
 const LeadSourcesManager = () => {
   const { token, user, projectAccess } = useAuth();
+  const { socket, connected } = useWebSocket();
   
   // Check permissions for lead source management
   const isSuperAdmin = user?.role === 'superadmin' || user?.role === 'admin';
@@ -50,6 +54,50 @@ const LeadSourcesManager = () => {
       fetchLeadSources();
     }
   }, [token]);
+
+  // WebSocket event listeners for real-time lead source updates
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleLeadSourceCreated = (data: { leadSource: LeadSource; createdBy: { _id: string; name: string } }) => {
+      console.log('Lead source created:', data);
+      setLeadSources(prev => [data.leadSource, ...prev]);
+      toast({
+        title: "New Lead Source",
+        description: `${data.createdBy.name} created a new lead source: ${data.leadSource.name}`,
+      });
+    };
+
+    const handleLeadSourceUpdated = (data: { leadSource: LeadSource; updatedBy: { _id: string; name: string } }) => {
+      console.log('Lead source updated:', data);
+      setLeadSources(prev => prev.map(ls => ls._id === data.leadSource._id ? data.leadSource : ls));
+      toast({
+        title: "Lead Source Updated",
+        description: `${data.updatedBy.name} updated lead source: ${data.leadSource.name}`,
+      });
+    };
+
+    const handleLeadSourceDeleted = (data: { leadSourceId: string; deletedBy: { _id: string; name: string } }) => {
+      console.log('Lead source deleted:', data);
+      setLeadSources(prev => prev.filter(ls => ls._id !== data.leadSourceId));
+      toast({
+        title: "Lead Source Deleted",
+        description: `${data.deletedBy.name} deleted a lead source`,
+      });
+    };
+
+    // Register event listeners
+    socket.on('lead-source-created', handleLeadSourceCreated);
+    socket.on('lead-source-updated', handleLeadSourceUpdated);
+    socket.on('lead-source-deleted', handleLeadSourceDeleted);
+
+    // Cleanup
+    return () => {
+      socket.off('lead-source-created', handleLeadSourceCreated);
+      socket.off('lead-source-updated', handleLeadSourceUpdated);
+      socket.off('lead-source-deleted', handleLeadSourceDeleted);
+    };
+  }, [socket]);
 
   const fetchLeadSources = async () => {
     try {
@@ -238,6 +286,7 @@ const LeadSourcesManager = () => {
           </div>
         </div>
         <div className="flex gap-2 w-full lg:w-auto lg:ml-auto">
+          <WebSocketStatus size="sm" />
           {canManageLeadSources && (
             <Button onClick={handleAddNew} color="primary" className="w-full lg:w-auto">
               <Icon icon="solar:add-circle-line-duotone" className="mr-2" />
