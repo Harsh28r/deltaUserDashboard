@@ -30,10 +30,7 @@ const LocationCapture: React.FC<LocationCaptureProps> = ({
       const locationData: LocationData = {
         lat: initialLocation.lat,
         lng: initialLocation.lng,
-        address: '',
-        placeName: '',
-        accuracy: 0,
-        timestamp: Date.now()
+        placeName: `${initialLocation.lat.toFixed(4)}, ${initialLocation.lng.toFixed(4)}`
       };
       setLocation(locationData);
     }
@@ -54,8 +51,8 @@ const LocationCapture: React.FC<LocationCaptureProps> = ({
       // Reverse geocode to get address details
       try {
         const geocodedData = await reverseGeocode(locationData.lat, locationData.lng);
-        locationData.address = geocodedData.address || '';
-        locationData.placeName = geocodedData.placeName || '';
+        // Update locationData with geocoded information
+        Object.assign(locationData, geocodedData);
       } catch (geocodeError) {
         console.warn('Reverse geocoding failed:', geocodeError);
         // Continue without address data
@@ -116,9 +113,9 @@ const LocationCapture: React.FC<LocationCaptureProps> = ({
             </div>
             <div className="text-sm text-green-700 space-y-1">
               <div><strong>Coordinates:</strong> {location.lat.toFixed(6)}, {location.lng.toFixed(6)}</div>
-              {location.address && <div><strong>Address:</strong> {location.address}</div>}
+              {location.fullAddress && <div><strong>Address:</strong> {location.fullAddress}</div>}
               {location.placeName && <div><strong>Place:</strong> {location.placeName}</div>}
-              <div><strong>Accuracy:</strong> ±{location.accuracy}m</div>
+              {location.formattedAddress && <div><strong>Formatted:</strong> {location.formattedAddress}</div>}
             </div>
           </div>
 

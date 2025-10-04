@@ -28,7 +28,11 @@ export interface LocationData {
   }
   
   // Get current location using browser geolocation API
-  export const getCurrentLocation = (): Promise<LocationData> => {
+  export const getCurrentLocation = (options?: {
+    enableHighAccuracy?: boolean;
+    timeout?: number;
+    maximumAge?: number;
+  }): Promise<LocationData> => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
         reject({
@@ -38,11 +42,13 @@ export interface LocationData {
         return;
       }
   
-      const options = {
+      const defaultOptions = {
         enableHighAccuracy: true,
         timeout: 10000,
         maximumAge: 300000 // 5 minutes
       };
+      
+      const finalOptions = { ...defaultOptions, ...options };
   
       navigator.geolocation.getCurrentPosition(
         async (position) => {
@@ -81,7 +87,7 @@ export interface LocationData {
             message: errorMessage
           });
         },
-        options
+        finalOptions
       );
     });
   };
