@@ -88,9 +88,11 @@ export interface Lead {
   } | null;
   customData: {
     "First Name"?: string;
+    "Last Name"?: string;
     "Email"?: string;
     "Phone"?: string;
     "Notes"?: string;
+    "Company"?: string;
     "Lead Priority"?: string;
     "Property Type"?: string;
     "Configuration"?: string;
@@ -99,6 +101,21 @@ export interface Lead {
     "Budget"?: string;
     "Channel Partner"?: string;
     "Channel Partner Sourcing"?: string;
+    // Backend also returns camelCase field names
+    name?: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phone?: string;
+    contact?: string;
+    notes?: string;
+    company?: string;
+    leadPriority?: string;
+    propertyType?: string;
+    configuration?: string;
+    fundingMode?: string;
+    gender?: string;
+    budget?: string;
     [key: string]: any;
   };
   statusHistory: StatusHistoryItem[];

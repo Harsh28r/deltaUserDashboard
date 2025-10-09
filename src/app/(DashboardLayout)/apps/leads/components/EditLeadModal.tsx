@@ -46,21 +46,33 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
   useEffect(() => {
     if (!lead) return;
     const cd = lead.customData || {};
+    // Helper functions to handle both field name formats
+    const getName = () => cd["First Name"] || cd.name || cd.firstName || "";
+    const getEmail = () => cd["Email"] || cd.email || "";
+    const getPhone = () => cd["Phone"] || cd.contact || cd.phone || "";
+    const getNotes = () => cd["Notes"] || cd.notes || "";
+    const getLeadPriority = () => cd["Lead Priority"] || cd.leadPriority || "Hot";
+    const getPropertyType = () => cd["Property Type"] || cd.propertyType || "Residential";
+    const getConfiguration = () => cd["Configuration"] || cd.configuration || "2+2 BHK";
+    const getFundingMode = () => cd["Funding Mode"] || cd.fundingMode || "Sale Out Property";
+    const getGender = () => cd["Gender"] || cd.gender || "Male";
+    const getBudget = () => cd["Budget"] || cd.budget || "Not Specified";
+    
     setFormData((prev) => ({
       ...prev,
-      firstName: cd["First Name"] || "",
-      email: cd["Email"] || "",
-      phone: cd["Phone"] || "",
-      notes: cd["Notes"] || "",
+      firstName: getName(),
+      email: getEmail(),
+      phone: getPhone(),
+      notes: getNotes(),
       leadSource: (lead.leadSource?._id as any) || "",
       project: (lead.project?._id as any) || "",
       // Defaults as requested when missing
-      leadPriority: cd["Lead Priority"] || "Hot",
-      propertyType: cd["Property Type"] || "Residential",
-      configuration: cd["Configuration"] || "2+2 BHK",
-      fundingMode: cd["Funding Mode"] || "Sale Out Property",
-      gender: cd["Gender"] || "Male",
-      budget: cd["Budget"] || "Not Specified",
+      leadPriority: getLeadPriority(),
+      propertyType: getPropertyType(),
+      configuration: getConfiguration(),
+      fundingMode: getFundingMode(),
+      gender: getGender(),
+      budget: getBudget(),
       // Include dynamic fields keyed by their names
       ...currentStatusFields.reduce((acc, f) => {
         acc[f.name] = cd[f.name] || "";

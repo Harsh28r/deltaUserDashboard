@@ -19,6 +19,21 @@ const LeadInfo: React.FC<LeadInfoProps> = ({
   onStatusChange
 }) => {
   const cpList = Array.isArray(cpSourcingOptions) ? cpSourcingOptions : [];
+  
+  // Helper functions to get data from customData with fallback to different field name formats
+  const getFirstName = () => lead.customData?.["First Name"] || lead.customData?.name || lead.customData?.firstName || '';
+  const getLastName = () => lead.customData?.["Last Name"] || lead.customData?.lastName || '';
+  const getEmail = () => lead.customData?.["Email"] || lead.customData?.email || '';
+  const getPhone = () => lead.customData?.["Phone"] || lead.customData?.contact || lead.customData?.phone || '';
+  const getCompany = () => lead.customData?.["Company"] || lead.customData?.company || '';
+  const getNotes = () => lead.customData?.["Notes"] || lead.customData?.notes || '';
+  const getLeadPriority = () => lead.customData?.["Lead Priority"] || lead.customData?.leadPriority || '';
+  const getPropertyType = () => lead.customData?.["Property Type"] || lead.customData?.propertyType || '';
+  const getConfiguration = () => lead.customData?.["Configuration"] || lead.customData?.configuration || '';
+  const getFundingMode = () => lead.customData?.["Funding Mode"] || lead.customData?.fundingMode || '';
+  const getGender = () => lead.customData?.["Gender"] || lead.customData?.gender || '';
+  const getBudget = () => lead.customData?.["Budget"] || lead.customData?.budget || '';
+  
   // Function to get source name with channel partner info
   const getSourceName = (lead: Lead) => {
     const channelPartnerId = lead.customData?.["Channel Partner"];
@@ -67,9 +82,9 @@ const LeadInfo: React.FC<LeadInfoProps> = ({
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Full Name</label>
               <div className="flex items-center gap-2 mt-1">
                 <p className="text-gray-900 dark:text-white font-medium">
-                  {lead.customData?.["First Name"] || ''} 
+                  {getFirstName()} {getLastName()}
                 </p>
-                {lead.customData?.["First Name"] && (
+                {getFirstName() && (
                   <Badge color="blue" size="sm">
                     Verified
                   </Badge>
@@ -78,7 +93,7 @@ const LeadInfo: React.FC<LeadInfoProps> = ({
             </div>
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Company</label>
-              <p className="text-gray-900 dark:text-white">{lead.customData?.["Company"] || 'N/A'}</p>
+              <p className="text-gray-900 dark:text-white">{getCompany() || 'N/A'}</p>
             </div>
           </div>
 
@@ -86,9 +101,9 @@ const LeadInfo: React.FC<LeadInfoProps> = ({
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Email Address</label>
               <div className="flex items-center gap-2 mt-1">
-                <p className="text-gray-900 dark:text-white">{lead.customData?.["Email"] || 'N/A'}</p>
-                {lead.customData?.["Email"] && (
-                  <Button size="xs" color="light" onClick={() => window.open(`mailto:${lead.customData?.["Email"]}`)}>
+                <p className="text-gray-900 dark:text-white">{getEmail() || 'N/A'}</p>
+                {getEmail() && (
+                  <Button size="xs" color="light" onClick={() => window.open(`mailto:${getEmail()}`)}>
                     <Icon icon="solar:letter-unread-line-duotone" className="w-3 h-3" />
                   </Button>
                 )}
@@ -97,9 +112,9 @@ const LeadInfo: React.FC<LeadInfoProps> = ({
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Phone Number</label>
               <div className="flex items-center gap-2 mt-1">
-                <p className="text-gray-900 dark:text-white">{lead.customData?.["Phone"] || 'N/A'}</p>
-                {lead.customData?.["Phone"] && (
-                  <Button size="xs" color="light" onClick={() => window.open(`tel:${lead.customData?.["Phone"]}`)}>
+                <p className="text-gray-900 dark:text-white">{getPhone() || 'N/A'}</p>
+                {getPhone() && (
+                  <Button size="xs" color="light" onClick={() => window.open(`tel:${getPhone()}`)}>
                     <Icon icon="solar:phone-line-duotone" className="w-3 h-3" />
                   </Button>
                 )}
@@ -111,7 +126,7 @@ const LeadInfo: React.FC<LeadInfoProps> = ({
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Notes</label>
             <div className="mt-1 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <p className="text-gray-900 dark:text-white text-sm">
-                {lead.customData?.["Notes"] || 'No notes available'}
+                {getNotes() || 'No notes available'}
               </p>
             </div>
           </div>
@@ -123,20 +138,20 @@ const LeadInfo: React.FC<LeadInfoProps> = ({
               <div className="mt-1">
                 <Badge
                   color={
-                    lead.customData?.["Lead Priority"] === 'Hot' ? 'red' :
-                      lead.customData?.["Lead Priority"] === 'Warm' ? 'orange' :
-                        lead.customData?.["Lead Priority"] === 'Cold' ? 'blue' : 'gray'
+                    getLeadPriority() === 'Hot' ? 'red' :
+                      getLeadPriority() === 'Warm' ? 'orange' :
+                        getLeadPriority() === 'Cold' ? 'blue' : 'gray'
                   }
                   size="sm"
                 >
-                  {lead.customData?.["Lead Priority"] || 'Not Set'}
+                  {getLeadPriority() || 'Not Set'}
                 </Badge>
               </div>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Property Type</label>
               <p className="text-gray-900 dark:text-white mt-1">
-                {lead.customData?.["Property Type"] || 'N/A'}
+                {getPropertyType() || 'N/A'}
               </p>
             </div>
           </div>
@@ -145,13 +160,13 @@ const LeadInfo: React.FC<LeadInfoProps> = ({
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Configuration</label>
               <p className="text-gray-900 dark:text-white mt-1">
-                {lead.customData?.["Configuration"] || 'N/A'}
+                {getConfiguration() || 'N/A'}
               </p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Funding Mode</label>
               <p className="text-gray-900 dark:text-white mt-1">
-                {lead.customData?.["Funding Mode"] || 'N/A'}
+                {getFundingMode() || 'N/A'}
               </p>
             </div>
           </div>
@@ -160,13 +175,13 @@ const LeadInfo: React.FC<LeadInfoProps> = ({
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Gender</label>
               <p className="text-gray-900 dark:text-white mt-1">
-                {lead.customData?.["Gender"] || 'N/A'}
+                {getGender() || 'N/A'}
               </p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Budget</label>
               <p className="text-gray-900 dark:text-white mt-1">
-                {lead.customData?.["Budget"] || 'N/A'}
+                {getBudget() || 'N/A'}
               </p>
             </div>
           </div>

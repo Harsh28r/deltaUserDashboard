@@ -1,11 +1,12 @@
 
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { Button, Card, Badge, Alert, Modal, Label, Select, TextInput, Textarea } from "flowbite-react";
 import { useLeadPermissions } from "@/hooks/use-permissions";
 import { Icon } from "@iconify/react";
 import { useAuth } from "@/app/context/AuthContext";
+import { useWebSocket } from "@/app/context/WebSocketContext";
 import { API_BASE_URL } from "@/lib/config";
 import { useParams, useRouter } from "next/navigation";
 import { LeadFormData, StatusFormData, AlertMessage, FormField } from "../types";
@@ -16,6 +17,9 @@ import LeadInfo from "../components/LeadInfo";
 import ActivityTimeline from "../components/ActivityTimeline";
 import StatusHistory from "../components/StatusHistory";
 import EditLeadModal from "../components/EditLeadModal";
+import WebSocketStatus from "@/app/components/WebSocketStatus";
+import { toast } from "@/hooks/use-toast";
+import DateTimePicker from "../components/DateTimePicker";
 
 const LeadDetailPage = () => {
   const { token } = useAuth();
@@ -27,6 +31,9 @@ const LeadDetailPage = () => {
   const { lead, activities, isLoading, alertMessage, setAlertMessage, refreshLead } = useLeadDetails(leadId);
   const { leadStatuses, leadSources, projects, users, channelPartners, cpSourcingOptions } = useLeadData();
   const { canUpdateLeadStatus } = useLeadPermissions();
+  
+  // WebSocket integration
+  const { socket, connected, subscribeToLeads, unsubscribeFromLeads } = useWebSocket();
 
   // Modal states
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -40,6 +47,89 @@ const LeadDetailPage = () => {
     newStatus: '',
     statusRemark: ''
   });
+
+  // WebSocket subscription
+  useEffect(() => {
+    if (connected) {
+      subscribeToLeads();
+    }
+
+    return () => {
+      if (connected) {
+        unsubscribeFromLeads();
+      }
+    };
+  }, [connected, subscribeToLeads, unsubscribeFromLeads]);
+
+  // Listen for WebSocket events for real-time updates
+  useEffect(() => {
+    if (!socket || !leadId) return;
+
+    const handleLeadUpdated = (data: { lead: any; updatedBy: { _id: string; name: string } }) => {
+      console.log('Lead updated via WebSocket:', data);
+      // Only refresh if this is the current lead being viewed
+      if (data.lead._id === leadId) {
+        refreshLead();
+        toast({
+          title: "Lead Updated",
+          description: `${data.updatedBy.name} updated this lead`,
+        });
+      }
+    };
+
+    const handleLeadStatusChanged = (data: { lead: any; changedBy: { _id: string; name: string } }) => {
+      console.log('Lead status changed via WebSocket:', data);
+      // Only refresh if this is the current lead being viewed
+      if (data.lead._id === leadId) {
+        refreshLead();
+        toast({
+          title: "Status Changed",
+          description: `${data.changedBy.name} changed the status of this lead`,
+        });
+      }
+    };
+
+    const handleLeadAssigned = (data: { lead: any; assignedBy: { _id: string; name: string } }) => {
+      console.log('Lead assigned via WebSocket:', data);
+      // Only refresh if this is the current lead being viewed
+      if (data.lead._id === leadId) {
+        refreshLead();
+        toast({
+          title: "Lead Assigned",
+          description: `${data.assignedBy.name} assigned this lead`,
+        });
+      }
+    };
+
+    const handleLeadDeleted = (data: { leadId: string; deletedBy: { _id: string; name: string } }) => {
+      console.log('Lead deleted via WebSocket:', data);
+      // If this lead was deleted, redirect to leads list
+      if (data.leadId === leadId) {
+        toast({
+          title: "Lead Deleted",
+          description: `${data.deletedBy.name} deleted this lead`,
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          router.push('/apps/leads');
+        }, 2000);
+      }
+    };
+
+    // Register event listeners
+    socket.on('lead-updated', handleLeadUpdated);
+    socket.on('lead-status-changed', handleLeadStatusChanged);
+    socket.on('lead-assigned', handleLeadAssigned);
+    socket.on('lead-deleted', handleLeadDeleted);
+
+    // Cleanup
+    return () => {
+      socket.off('lead-updated', handleLeadUpdated);
+      socket.off('lead-status-changed', handleLeadStatusChanged);
+      socket.off('lead-assigned', handleLeadAssigned);
+      socket.off('lead-deleted', handleLeadDeleted);
+    };
+  }, [socket, leadId, refreshLead, router]);
 
   const handleEditLead = useCallback(() => {
     setIsEditModalOpen(true);
@@ -143,6 +233,20 @@ const LeadDetailPage = () => {
 
     try {
       setIsSubmitting(true);
+      
+      // Start with all existing customData to preserve all fields
+      const existingData = { ...(lead.customData || {}) };
+      
+      // Add status-specific dynamic fields (these can override existing values)
+      getFieldsForStatus(selectedStatusId).forEach((f) => {
+        const value = statusDynamicFields[f.name];
+        if (value !== undefined && value !== null) {
+          existingData[f.name] = value;
+        }
+      });
+      
+      // Add the remark
+      existingData['Remark'] = statusFormData.statusRemark || 'Status updated';
 
       const response = await fetch(`${API_BASE_URL}/api/leads/${lead._id}/status/`, {
         method: 'PUT',
@@ -152,23 +256,7 @@ const LeadDetailPage = () => {
         },
         body: JSON.stringify({
           newStatus: selectedStatusId,
-          newData: {
-            "First Name": lead.customData?.["First Name"] || '',
-            "Email": lead.customData?.["Email"] || '',
-            "Phone": lead.customData?.["Phone"] || '',
-            "Notes": lead.customData?.["Notes"] || '',
-            "Lead Priority": lead.customData?.["Lead Priority"] || '',
-            "Property Type": lead.customData?.["Property Type"] || '',
-            "Configuration": lead.customData?.["Configuration"] || '',
-            "Funding Mode": lead.customData?.["Funding Mode"] || '',
-            "Gender": lead.customData?.["Gender"] || '',
-            "Budget": lead.customData?.["Budget"] || '',
-            ...getFieldsForStatus(selectedStatusId).reduce((acc, f) => {
-              acc[f.name] = statusDynamicFields[f.name] ?? '';
-              return acc;
-            }, {} as Record<string, any>),
-            Remark: statusFormData.statusRemark || 'Status updated'
-          }
+          newData: existingData
         }),
       });
 
@@ -192,7 +280,7 @@ const LeadDetailPage = () => {
     } finally {
       setIsSubmitting(false);
     }
-  }, [lead, statusFormData, token, refreshLead, setAlertMessage]);
+  }, [lead, selectedStatusId, statusDynamicFields, statusFormData, token, refreshLead, setAlertMessage, leadStatuses]);
 
   if (isLoading) {
     return (
@@ -245,8 +333,12 @@ const LeadDetailPage = () => {
         </button>
         <Icon icon="solar:arrow-right-line-duotone" className="w-4 h-4" />
         <span className="text-gray-900 dark:text-white font-medium">
-          {lead.customData?.["First Name"] || ''} {lead.customData?.["Last Name"] || ''}
-          {!lead.customData?.["First Name"] && !lead.customData?.["Last Name"] && 'Lead Details'}
+          {(() => {
+            const cd = lead.customData || {};
+            const firstName = cd["First Name"] || cd.name || cd.firstName || '';
+            const lastName = cd["Last Name"] || cd.lastName || '';
+            return firstName || lastName ? `${firstName} ${lastName}`.trim() : 'Lead Details';
+          })()}
         </span>
       </nav>
 
@@ -274,7 +366,8 @@ const LeadDetailPage = () => {
             Complete information and activity history for this lead
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <WebSocketStatus size="sm" />
           <Button
             color="gray"
             onClick={() => router.push('/apps/leads')}
@@ -438,15 +531,20 @@ const LeadDetailPage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="modal_name" value="Name" />
-                    <TextInput id="modal_name" value={`${lead.customData?.["First Name"] || ''} ${lead.customData?.["Last Name"] || ''}`.trim()} disabled />
+                    <TextInput id="modal_name" value={(() => {
+                      const cd = lead.customData || {};
+                      const firstName = cd["First Name"] || cd.name || cd.firstName || '';
+                      const lastName = cd["Last Name"] || cd.lastName || '';
+                      return `${firstName} ${lastName}`.trim();
+                    })()} disabled />
                   </div>
                   <div>
                     <Label htmlFor="modal_email" value="Email" />
-                    <TextInput id="modal_email" value={lead.customData?.["Email"] || ''} disabled />
+                    <TextInput id="modal_email" value={lead.customData?.["Email"] || lead.customData?.email || ''} disabled />
                   </div>
                   <div>
                     <Label htmlFor="modal_phone" value="Phone" />
-                    <TextInput id="modal_phone" value={lead.customData?.["Phone"] || ''} disabled />
+                    <TextInput id="modal_phone" value={lead.customData?.["Phone"] || lead.customData?.contact || lead.customData?.phone || ''} disabled />
                   </div>
                 </div>
               </Card>
@@ -532,7 +630,11 @@ const LeadDetailPage = () => {
                         ) : field.type === 'number' ? (
                           <TextInput id={`statusField_${field._id || field.name}`} type="number" value={statusDynamicFields[field.name] || ''} onChange={(e) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} placeholder={`Enter ${field.name.toLowerCase()}`} required={field.required} />
                         ) : field.type === 'date' ? (
-                          <TextInput id={`statusField_${field._id || field.name}`} type="date" value={statusDynamicFields[field.name] || ''} onChange={(e) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} required={field.required} />
+                          <DateTimePicker id={`statusField_${field._id || field.name}`} type="date" value={statusDynamicFields[field.name] || ''} onChange={(value: string) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: value }))} placeholder={`Select ${field.name.toLowerCase()}`} required={field.required} />
+                        ) : field.type === 'datetime' ? (
+                          <DateTimePicker id={`statusField_${field._id || field.name}`} type="datetime" value={statusDynamicFields[field.name] || ''} onChange={(value: string) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: value }))} placeholder={`Select ${field.name.toLowerCase()}`} required={field.required} />
+                        ) : field.type === 'time' ? (
+                          <DateTimePicker id={`statusField_${field._id || field.name}`} type="time" value={statusDynamicFields[field.name] || ''} onChange={(value: string) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: value }))} placeholder={`Select ${field.name.toLowerCase()}`} required={field.required} />
                         ) : field.type === 'email' ? (
                           <TextInput id={`statusField_${field._id || field.name}`} type="email" value={statusDynamicFields[field.name] || ''} onChange={(e) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} placeholder={`Enter ${field.name.toLowerCase()}`} required={field.required} />
                         ) : field.type === 'tel' ? (

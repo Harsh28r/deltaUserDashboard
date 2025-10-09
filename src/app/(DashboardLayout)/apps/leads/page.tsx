@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Button, Card, Table, Badge, Modal, Alert, Label, Select, TextInput, Textarea } from "flowbite-react";
+import { Button, Card, Table, Badge, Modal, Alert, Label, Select, TextInput, Textarea, Pagination } from "flowbite-react";
 import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
@@ -13,6 +13,7 @@ import { useLeadPermissions } from "@/hooks/use-permissions";
 import { PERMISSIONS } from "@/app/types/permissions";
 import { toast } from "@/hooks/use-toast";
 import WebSocketStatus from "@/app/components/WebSocketStatus";
+import DateTimePicker from "./components/DateTimePicker";
 
 interface Lead {
   _id: string;
@@ -81,9 +82,9 @@ const LeadsPage = () => {
   const transformLeadData = (leadsData: any[]): Lead[] => {
     return leadsData.map((raw) => {
       const cd = raw.customData || {};
-      const nameFromCustom = cd["First Name"] && cd["Last Name"] ? `${cd["First Name"]} ${cd["Last Name"]}` : cd["First Name"] || raw.name || "";
-      const email = cd["Email"] || raw.email || "";
-      const phone = cd["Phone"] || raw.phone || "";
+      const nameFromCustom = cd["First Name"] && cd["Last Name"] ? `${cd["First Name"]} ${cd["Last Name"]}` : cd["First Name"] || cd.name || raw.name || "";
+      const email = cd["Email"] || cd.email || raw.email || "";
+      const phone = cd["Phone"] || cd.contact || raw.phone || "";
       const company = cd["Company"] || raw.company || "";
       const source = raw.leadSource?.name || raw.source || "";
       const status = raw.currentStatus?.name || raw.status || "";
@@ -92,13 +93,19 @@ const LeadsPage = () => {
         ? (raw.owner.name || raw.owner.fullName || raw.owner.email || '')
         : (raw.owner || raw.user?.name || raw.createdBy?.name || '');
       
-      // Handle CP Sourcing
+      // Handle CP Sourcing - check multiple possible fields
       let cpSourcingName = '';
-      if (raw.cpSourcingId && raw.cpSourcingId !== null && raw.cpSourcingId.userId && raw.cpSourcingId.userId.name) {
+      
+      // First check channelPartner field (main field from backend)
+      if (raw.channelPartner && raw.channelPartner.name) {
+        cpSourcingName = raw.channelPartner.name;
+      }
+      // Then check cpSourcingId field
+      else if (raw.cpSourcingId && raw.cpSourcingId !== null && raw.cpSourcingId.userId && raw.cpSourcingId.userId.name) {
         cpSourcingName = raw.cpSourcingId.userId.name;
       }
-      
-      if (!cpSourcingName && raw.customData && raw.customData["Channel Partner Sourcing"]) {
+      // Fallback to customData
+      else if (raw.customData && raw.customData["Channel Partner Sourcing"]) {
         cpSourcingName = 'Unknown CP User';
       }
       
@@ -190,48 +197,6 @@ const LeadsPage = () => {
     };
   }, [socket]);
 
-  // const transformLeadData = (leadsData: any[]): Lead[] => {
-  //   return leadsData.map((raw) => {
-  //     const cd = raw.customData || {};
-  //     const nameFromCustom = cd["First Name"] && cd["Last Name"] ? `${cd["First Name"]} ${cd["Last Name"]}` : cd["First Name"] || raw.name || "";
-  //     const email = cd["Email"] || raw.email || "";
-  //     const phone = cd["Phone"] || raw.phone || "";
-  //     const company = cd["Company"] || raw.company || "";
-  //     const source = raw.leadSource?.name || raw.source || "";
-  //     const status = raw.currentStatus?.name || raw.status || "";
-  //     const notes = cd["Notes"] || raw.notes || "";
-  //     const ownerName = typeof raw.owner === 'object' && raw.owner !== null
-  //       ? (raw.owner.name || raw.owner.fullName || raw.owner.email || '')
-  //       : (raw.owner || raw.user?.name || raw.createdBy?.name || '');
-      
-  //     // Handle CP Sourcing
-  //     let cpSourcingName = '';
-  //     if (raw.cpSourcingId && raw.cpSourcingId !== null && raw.cpSourcingId.userId && raw.cpSourcingId.userId.name) {
-  //       cpSourcingName = raw.cpSourcingId.userId.name;
-  //     }
-      
-  //     if (!cpSourcingName && raw.customData && raw.customData["Channel Partner Sourcing"]) {
-  //       cpSourcingName = 'Unknown CP User';
-  //     }
-      
-  //     return {
-  //       _id: raw._id,
-  //       name: nameFromCustom,
-  //       email,
-  //       phone,
-  //       company,
-  //       source,
-  //       status,
-  //       notes,
-  //       createdAt: raw.createdAt,
-  //       updatedAt: raw.updatedAt,
-  //       isActive: raw.isActive ?? true,
-  //       ownerName: ownerName || 'N/A',
-  //       cpSourcingName: cpSourcingName || null,
-  //     } as Lead;
-  //   });
-  // };
-
   const fetchLeads = async () => {
     try {
       setIsLoading(true);
@@ -271,48 +236,7 @@ const LeadsPage = () => {
       const data = await response.json();
       console.log('Backend data received:', data);
       const leadsData = (data.leads || data || []) as any[];
-      const mapped = leadsData.map((raw) => {
-        const cd = raw.customData || {};
-        const nameFromCustom = cd["First Name"] && cd["Last Name"] ? `${cd["First Name"]} ${cd["Last Name"]}` : cd["First Name"] || raw.name || "";
-        const email = cd["Email"] || raw.email || "";
-        const phone = cd["Phone"] || raw.phone || "";
-        const company = cd["Company"] || raw.company || "";
-        const source = raw.leadSource?.name || raw.source || "";
-        const status = raw.currentStatus?.name || raw.status || "";
-        const notes = cd["Notes"] || raw.notes || "";
-        const ownerName = typeof raw.owner === 'object' && raw.owner !== null
-          ? (raw.owner.name || raw.owner.fullName || raw.owner.email || '')
-          : (raw.owner || raw.user?.name || raw.createdBy?.name || '');
-        // Handle CP Sourcing - check if cpSourcingId exists and has userId.name
-        let cpSourcingName = '';
-        if (raw.cpSourcingId && raw.cpSourcingId !== null && raw.cpSourcingId.userId && raw.cpSourcingId.userId.name) {
-          cpSourcingName = raw.cpSourcingId.userId.name;
-        }
-        
-        // Also check customData for CP sourcing info as fallback
-        if (!cpSourcingName && raw.customData && raw.customData["Channel Partner Sourcing"]) {
-          const cpSourcingId = raw.customData["Channel Partner Sourcing"];
-          // This would need to be looked up from cpSourcingOptions if available
-          // For now, we'll just note that CP sourcing exists but user is unknown
-          cpSourcingName = 'Unknown CP User';
-        }
-        
-        return {
-          _id: raw._id,
-          name: nameFromCustom,
-          email,
-          phone,
-          company,
-          source,
-          status,
-          notes,
-          createdAt: raw.createdAt,
-          updatedAt: raw.updatedAt,
-          isActive: raw.isActive ?? true,
-          ownerName: ownerName || 'N/A',
-          cpSourcingName: cpSourcingName || null,
-        } as Lead;
-      });
+      const mapped = transformLeadData(leadsData);
       setLeads(mapped);
     } catch (err: any) {
       console.error("Error fetching leads:", err);
@@ -372,45 +296,47 @@ const LeadsPage = () => {
     if (!token || !selectedStatusId) return;
     try {
       setIsSubmittingStatus(true);
-      // Build newData from existing customData + dynamic fields
-      const payloadCustomData: any = { ...((selectedLeadFull as any)?.customData || {}) };
+      
+      // Start with all existing customData to preserve all fields
+      const existingData = { ...((selectedLeadFull as any)?.customData || {}) };
+      
+      // Update or add status-specific dynamic fields
       const fields = getFieldsForStatus(selectedStatusId);
-      fields.forEach((f) => { payloadCustomData[f.name] = statusDynamicFields[f.name] ?? ''; });
+      fields.forEach((f) => {
+        const value = statusDynamicFields[f.name];
+        if (value !== undefined && value !== null && value !== '') {
+          existingData[f.name] = value;
+        }
+      });
+      
+      // Update the additional lead information fields if they have values
+      if (modalLeadPriority) existingData["Lead Priority"] = modalLeadPriority;
+      if (modalPropertyType) existingData["Property Type"] = modalPropertyType;
+      if (modalConfiguration) existingData["Configuration"] = modalConfiguration;
+      if (modalFundingMode) existingData["Funding Mode"] = modalFundingMode;
+      if (modalGender) existingData["Gender"] = modalGender;
+      if (modalBudget) existingData["Budget"] = modalBudget;
+      
+      // Add the remark
+      existingData['Remark'] = statusRemark || 'Status updated';
+      
       const id = selectedLeadId || ((selectedLeadFull as any)?._id) || '';
       if (!id) {
         setError('Failed to resolve lead id for status update.');
         setIsSubmittingStatus(false);
         return;
       }
+      
       const res = await fetch(`${API_ENDPOINTS.LEAD_BY_ID(id)}/status/`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-          body: JSON.stringify({
-            newStatus: selectedStatusId,
-            // Send only status-specific fields to minimize hierarchy validation
-            newData: {
-              // Basic info to ensure it is tracked in status history
-              "First Name": (selectedLeadFull as any)?.customData?.["First Name"] || (selectedLeadFull as any)?.name || '',
-              "Last Name": (selectedLeadFull as any)?.customData?.["Last Name"] || '',
-              "Email": (selectedLeadFull as any)?.customData?.["Email"] || (selectedLeadFull as any)?.email || '',
-              "Phone": (selectedLeadFull as any)?.customData?.["Phone"] || (selectedLeadFull as any)?.phone || '',
-              // Additional Lead Information tracked in status change
-              "Lead Priority": modalLeadPriority,
-              "Property Type": modalPropertyType,
-              "Configuration": modalConfiguration,
-              "Funding Mode": modalFundingMode,
-              "Gender": modalGender,
-              "Budget": modalBudget,
-              ...getFieldsForStatus(selectedStatusId).reduce((acc, f) => {
-                acc[f.name] = statusDynamicFields[f.name] ?? '';
-                return acc;
-              }, {} as Record<string, any>),
-              Remark: statusRemark || 'Status updated'
-            },
-          }),
+        body: JSON.stringify({
+          newStatus: selectedStatusId,
+          newData: existingData
+        }),
       });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
@@ -784,7 +710,11 @@ const LeadsPage = () => {
                       ) : field.type === 'number' ? (
                         <TextInput id={`statusField_${field._id || field.name}`} type="number" value={statusDynamicFields[field.name] || ''} onChange={(e) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} placeholder={`Enter ${field.name.toLowerCase()}`} required={field.required} />
                       ) : field.type === 'date' ? (
-                        <TextInput id={`statusField_${field._id || field.name}`} type="date" value={statusDynamicFields[field.name] || ''} onChange={(e) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} required={field.required} />
+                        <DateTimePicker id={`statusField_${field._id || field.name}`} type="date" value={statusDynamicFields[field.name] || ''} onChange={(value) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: value }))} placeholder={`Select ${field.name.toLowerCase()}`} required={field.required} />
+                      ) : field.type === 'datetime' ? (
+                        <DateTimePicker id={`statusField_${field._id || field.name}`} type="datetime" value={statusDynamicFields[field.name] || ''} onChange={(value) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: value }))} placeholder={`Select ${field.name.toLowerCase()}`} required={field.required} />
+                      ) : field.type === 'time' ? (
+                        <DateTimePicker id={`statusField_${field._id || field.name}`} type="time" value={statusDynamicFields[field.name] || ''} onChange={(value) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: value }))} placeholder={`Select ${field.name.toLowerCase()}`} required={field.required} />
                       ) : field.type === 'email' ? (
                         <TextInput id={`statusField_${field._id || field.name}`} type="email" value={statusDynamicFields[field.name] || ''} onChange={(e) => setStatusDynamicFields(prev => ({ ...prev, [field.name]: e.target.value }))} placeholder={`Enter ${field.name.toLowerCase()}`} required={field.required} />
                       ) : field.type === 'tel' ? (
