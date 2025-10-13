@@ -75,6 +75,16 @@ export const API_ENDPOINTS = {
   
   // Team Hierarchy
   TEAM_HIERARCHY: (userId: string) => `${API_BASE_URL}/api/user-reporting/hierarchy/${userId}`,
+  
+  // Attendance
+  ATTENDANCE_STATUS: `${API_BASE_URL}/api/attendance/status`,
+  ATTENDANCE_CHECK_IN: `${API_BASE_URL}/api/attendance/check-in`,
+  ATTENDANCE_CHECK_OUT: `${API_BASE_URL}/api/attendance/check-out`,
+  ATTENDANCE_START_BREAK: `${API_BASE_URL}/api/attendance/break/start`,
+  ATTENDANCE_END_BREAK: `${API_BASE_URL}/api/attendance/break/end`,
+  ATTENDANCE_WORK_LOCATION: `${API_BASE_URL}/api/attendance/work-location`,
+  ATTENDANCE_HISTORY: `${API_BASE_URL}/api/attendance/my-history`,
+  ATTENDANCE_TODAY: `${API_BASE_URL}/api/attendance/today`,
 };
 
 // Utility function for creating refresh events

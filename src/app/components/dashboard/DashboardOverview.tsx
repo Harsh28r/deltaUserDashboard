@@ -4,6 +4,7 @@ import { Card, Badge, Button } from "flowbite-react";
 import { Icon } from "@iconify/react";
 import { useAuth } from "@/app/context/AuthContext";
 import CrmDashboard from "./CrmDashboard";
+import AttendanceWidget from "./AttendanceWidget";
 
 const DashboardOverview = () => {
   const { user, projectAccess } = useAuth();
@@ -95,9 +96,15 @@ const DashboardOverview = () => {
         </div>
       </div>
 
-      {/* Quick Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="p-6 border-l-4 border-l-green-500 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+      {/* Attendance Widget */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1">
+          <AttendanceWidget />
+        </div>
+        
+        {/* Quick Stats Cards */}
+        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card className="p-6 border-l-4 border-l-green-500 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -153,21 +160,22 @@ const DashboardOverview = () => {
           </div>
         </Card>
 
-        <Card className="p-6 border-l-4 border-l-orange-500 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Notifications</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">12</p>
-              <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
-                <Icon icon="solar:bell-line-duotone" className="inline mr-1" />
-                4 important
-              </p>
+          <Card className="p-6 border-l-4 border-l-orange-500 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Notifications</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">12</p>
+                <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                  <Icon icon="solar:bell-line-duotone" className="inline mr-1" />
+                  4 important
+                </p>
+              </div>
+              <div className="p-3 bg-orange-100 dark:bg-orange-900 rounded-full">
+                <Icon icon="solar:bell-line-duotone" className="text-2xl text-orange-600 dark:text-orange-400" />
+              </div>
             </div>
-            <div className="p-3 bg-orange-100 dark:bg-orange-900 rounded-full">
-              <Icon icon="solar:bell-line-duotone" className="text-2xl text-orange-600 dark:text-orange-400" />
-            </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
       </div>
 
       {/* Main Dashboard Content */}

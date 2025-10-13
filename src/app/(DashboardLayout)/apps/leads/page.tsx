@@ -96,13 +96,17 @@ const LeadsPage = () => {
       // Handle CP Sourcing - check multiple possible fields
       let cpSourcingName = '';
       
-      // First check channelPartner field (main field from backend)
-      if (raw.channelPartner && raw.channelPartner.name) {
+      // First check cpSourcingId field (new structure)
+      if (raw.cpSourcingId && raw.cpSourcingId.userId && raw.cpSourcingId.userId.name) {
+        cpSourcingName = raw.cpSourcingId.userId.name;
+      }
+      // Then check channelPartner field (legacy field from backend)
+      else if (raw.channelPartner && raw.channelPartner.name) {
         cpSourcingName = raw.channelPartner.name;
       }
-      // Then check cpSourcingId field
-      else if (raw.cpSourcingId && raw.cpSourcingId !== null && raw.cpSourcingId.userId && raw.cpSourcingId.userId.name) {
-        cpSourcingName = raw.cpSourcingId.userId.name;
+      // Check if cpSourcingId exists but userId is missing
+      else if (raw.cpSourcingId && raw.cpSourcingId._id) {
+        cpSourcingName = 'Unknown CP User';
       }
       // Fallback to customData
       else if (raw.customData && raw.customData["Channel Partner Sourcing"]) {
@@ -481,15 +485,11 @@ const LeadsPage = () => {
                         <Badge color="blue" size="sm">
                           {lead.source}
                         </Badge>
-                        {lead.cpSourcingName ? (
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            <span className="font-medium">Sourced by:</span> {lead.cpSourcingName}
+                        {lead.cpSourcingName && (
+                          <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                            <span className="font-medium">CP:</span> {lead.cpSourcingName}
                           </div>
-                        ) : lead.source?.toLowerCase().includes('channel partner') ? (
-                          <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                            <span className="font-medium">No CP user assigned</span>
-                          </div>
-                        ) : null}
+                        )}
                       </div>
                     </Table.Cell>
                     <Table.Cell>
